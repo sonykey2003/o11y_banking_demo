@@ -149,18 +149,46 @@ Add `--dry-run` to any `splunk-*.sh` script to print the commands without runnin
 
 ## 7. Optional — trace-correlated logs
 
-Requires a Splunk Cloud stack. Fill in the Log Observer Connect block of `.env`
-(`DEMO_SPLUNK_STACK`, `SPLUNK_CLOUD_HEC`, `SPLUNK_USERNAME`,
-`SPLUNK_LOC_SERVICE_ACCOUNT`, `SPLUNK_LOC_SERVICE_PASSWORD`), then:
+The Node.js agent already emits logs carrying `trace_id`, `span_id`, `service.name`,
+and `deployment.environment`. This step points the collector's HEC export at a Splunk
+index. Pick a destination with `SPLUNK_LOG_BACKEND` in `.env`.
+
+### Option A — Splunk Cloud (`SPLUNK_LOG_BACKEND=cloud`)
+
+Gives you the APM **Related Logs** tab. Fill in `DEMO_SPLUNK_STACK`, `SPLUNK_CLOUD_HEC`,
+`SPLUNK_USERNAME`, `SPLUNK_LOC_SERVICE_ACCOUNT`, `SPLUNK_LOC_SERVICE_PASSWORD`, then:
 
 ```bash
 ./scripts/splunk-logs.sh
 ```
 
-You are prompted once for the Splunk Cloud admin password; it is never stored.
-Finish by adding the connection in O11y → **Data Management → Log Observer Connect**.
+You are prompted once for the Splunk Cloud admin password; it is never stored. The script
+provisions the index, role, and service account. Finish by adding the connection in
+O11y → **Data Management → Log Observer Connect**.
 
-Logs then appear in APM → **Related Logs**, correlated by `trace_id`.
+### Option B — your own Splunk (`SPLUNK_LOG_BACKEND=custom`)
+
+For a Splunk Enterprise you already run. Supply the HEC endpoint and token:
+
+```bash
+export DEMO_SPLUNK_HEC_URL="https://your-splunk:8088/services/collector"
+export DEMO_SPLUNK_HEC_TOKEN="<HEC token>"
+export DEMO_SPLUNK_HEC_INSECURE="true"   # if the cert is self-signed
+```
+
+```bash
+./scripts/splunk-logs.sh
+```
+
+Verify with `index=sea_bank_demo trace_id=*` in your Splunk. Logs are searchable there,
+but the O11y Related Logs tab additionally needs a Log Observer Connect connection that
+can reach your Splunk — not set up by this demo.
+
+> For a Splunk running in Docker on the same laptop, use
+> `https://host.minikube.internal:8088/services/collector` — that is how a pod reaches your host.
+
+> **Run this after step 6.** `splunk-instrumentation.sh` sets Helm values without
+> `--reuse-values`, so running it later would drop the log-export leg added here.
 
 ---
 

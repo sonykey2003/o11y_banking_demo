@@ -1,22 +1,44 @@
 #!/usr/bin/env bash
-# O11y Log Observer Connect for the SEA Bank demo (single Splunk Cloud stack).
+# Trace-correlated app logs for the SEA Bank demo.
 #
 # The collector (installed by splunk-instrumentation.sh) already exports the Node agent's
-# OTLP app logs (trace_id/span_id). This provisions the LOC read side on the stack — index,
-# role, service account — and points the collector's HEC log-export leg (existing
-# SPLUNK_CLOUD_HEC token) at it, so the logs land in ${DEMO_SPLUNK_INDEX} and show in APM > Related Logs.
+# OTLP app logs (trace_id/span_id). This points the collector's HEC log-export leg at a
+# Splunk index so the logs land in ${DEMO_SPLUNK_INDEX}.
+#
+# Two destinations, selected by SPLUNK_LOG_BACKEND:
+#   cloud   Splunk Cloud stack. Also provisions the Log Observer Connect read side
+#           (index, role, service account) via ACS, giving APM > Related Logs in O11y.
+#   custom  Any Splunk you already run (e.g. Splunk Enterprise). You supply the HEC
+#           endpoint + token; no ACS provisioning. O11y Related Logs additionally
+#           requires a Log Observer Connect connection that can REACH that Splunk,
+#           which is out of scope here — logs are searchable in your own Splunk.
+#
+# Run AFTER splunk-instrumentation.sh: that script sets values without --reuse-values,
+# so running it later would drop the log-export leg added here.
 #
 # Config: repo-root .env (see .env.example).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 source "${DEMO_ENV_FILE:-${ROOT}/.env}"
 
+SPLUNK_LOG_BACKEND="${SPLUNK_LOG_BACKEND:-cloud}"
+
 # Staging vs prod HEC host domain. Stack names are bare (no .stg).
 case "${DEMO_SPLUNK_ACS_URL}" in *staging*) fed_dom="stg.splunkcloud.com" ;; *) fed_dom="splunkcloud.com" ;; esac
 
-HEC_URL="${DEMO_SPLUNK_HEC_URL:-https://http-inputs-${DEMO_SPLUNK_STACK}.${fed_dom}/services/collector}"
-HEC_TOKEN="${SPLUNK_CLOUD_HEC}"
-TLS_ARGS=()
+if [[ "${SPLUNK_LOG_BACKEND}" == "custom" ]]; then
+  HEC_URL="${DEMO_SPLUNK_HEC_URL:?set DEMO_SPLUNK_HEC_URL (your HEC endpoint) in .env}"
+  HEC_TOKEN="${DEMO_SPLUNK_HEC_TOKEN:?set DEMO_SPLUNK_HEC_TOKEN in .env}"
+  TLS_ARGS=()
+  # Self-signed certs are normal on a self-hosted Splunk.
+  [[ "${DEMO_SPLUNK_HEC_INSECURE:-false}" == "true" ]] && TLS_ARGS=(--set splunkPlatform.insecureSkipVerify=true)
+else
+  HEC_URL="${DEMO_SPLUNK_HEC_URL:-https://http-inputs-${DEMO_SPLUNK_STACK}.${fed_dom}/services/collector}"
+  HEC_TOKEN="${SPLUNK_CLOUD_HEC}"
+  TLS_ARGS=()
+fi
+
+if [[ "${SPLUNK_LOG_BACKEND}" == "cloud" ]]; then
 
 # Step 1: Acquire an ACS API token for the stack (session env only, not persisted).
 # curl -u prompts for the admin password; it is never stored in the env files.
@@ -46,6 +68,9 @@ echo "== LOC service account ${SPLUNK_LOC_SERVICE_ACCOUNT} =="
 curl -sS -H "Authorization: Bearer ${ACS_TOKEN}" -X POST "${DEMO_SPLUNK_ACS_URL%/}/${DEMO_SPLUNK_STACK}/adminconfig/v2/users" \
   -H 'Content-Type: application/json' \
   -d "{\"name\":\"${SPLUNK_LOC_SERVICE_ACCOUNT}\",\"password\":\"${SPLUNK_LOC_SERVICE_PASSWORD}\",\"roles\":[\"${SPLUNK_LOC_ROLE}\"],\"forceChangePass\":false}"
+else
+  echo "== custom backend: skipping ACS index/role/user provisioning =="
+fi
 
 
 # Step 4: Point the collector's Splunk Platform HEC log-export leg at the index, using the
@@ -106,4 +131,8 @@ fi
 # Verify on the stack in Splunk Web:
 #   index=${DEMO_SPLUNK_INDEX} trace_id=*
 # Then O11y APM > a sea-bank service > Related Logs — correlated by trace_id.
-echo "== done — finish Log Observer Connect in the O11y console (see comment above) =="
+if [[ "${SPLUNK_LOG_BACKEND}" == "custom" ]]; then
+  echo "== done — logs -> ${HEC_URL} index=${DEMO_SPLUNK_INDEX}. Verify in Splunk: index=${DEMO_SPLUNK_INDEX} trace_id=* =="
+else
+  echo "== done — finish Log Observer Connect in the O11y console (see comment above) =="
+fi
