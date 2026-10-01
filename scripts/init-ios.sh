@@ -37,6 +37,45 @@ else
   echo "    Copied ios/ and android/ into app-ios/"
 fi
 
+# The AppDynamics pods declare deployment targets of 11.0/13.0; Xcode 16+ rejects
+# anything below 15.0, so raise every pod target before `pod install` links them.
+PODFILE="${APP_DIR}/ios/Podfile"
+MIN_IOS="15.1"
+if [[ -f "${PODFILE}" ]] && ! grep -q 'IPHONEOS_DEPLOYMENT_TARGET' "${PODFILE}"; then
+  python3 - "${PODFILE}" "${MIN_IOS}" <<'PY'
+import sys, re
+path, min_ios = sys.argv[1], sys.argv[2]
+src = open(path).read()
+patch = f'''
+    installer.pods_project.targets.each do |t|
+      t.build_configurations.each do |c|
+        cur = c.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if cur.nil? || cur.to_f < {min_ios}
+          c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '{min_ios}'
+        end
+      end
+    end
+  end
+end'''
+# Append inside the existing post_install block, before its closing `end end`.
+src = re.sub(r'\n  end\nend\s*$', patch + '\n', src)
+open(path, 'w').write(src)
+PY
+  echo "    Raised pod IPHONEOS_DEPLOYMENT_TARGET to ${MIN_IOS} (AppDynamics pods ship 11.0/13.0)"
+fi
+
+# Apps built against the iOS 26+ SDK must declare UIScene adoption or UIKit refuses to
+# launch them. RN 0.76's generated AppDelegate predates that; an empty scene manifest
+# satisfies the requirement without a full SceneDelegate migration.
+PLIST="${APP_DIR}/ios/${APP_NAME}/Info.plist"
+if [[ -f "${PLIST}" ]] && ! /usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest" "${PLIST}" >/dev/null 2>&1; then
+  /usr/libexec/PlistBuddy \
+    -c "Add :UIApplicationSceneManifest dict" \
+    -c "Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false" \
+    "${PLIST}" >/dev/null
+  echo "    Added UIApplicationSceneManifest to Info.plist (required by the iOS 26+ SDK)"
+fi
+
 echo "==> [3/4] Installing CocoaPods (links native modules incl. RUM SDKs)"
 if command -v pod >/dev/null 2>&1; then
   (cd "${APP_DIR}/ios" && pod install)
