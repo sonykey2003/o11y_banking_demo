@@ -42,7 +42,7 @@ Start Docker Desktop and confirm it is running before step 3.
 
 > **Xcode 26 / macOS 26 and newer:** Apple replaced `Simulator.app` with `DeviceHub.app`, so
 > `open -a Simulator` no longer works. Use `./scripts/ios-simulator.sh`, which opens whichever
-> is present. The same SDK versions also require UIScene adoption — see the iOS note in step 9.
+> is present. `init-ios.sh` handles the matching UIScene requirement automatically.
 
 Mobile RUM also needs a **RUM access token** (O11y → Settings → Access Tokens →
 RUM authorization). This is a *different* token from the ingest one above.
@@ -219,11 +219,9 @@ cd app-ios && npm run ios
 already-booted device. Pass a device name or set `IOS_SIM_DEVICE` to choose, or `IOS_SIM_APP`
 to point at a GUI app elsewhere.
 
-> **Known issue on Xcode 26+:** the app builds and installs but will not launch — UIKit reports
-> *"UIScene life cycle is required for apps built with this SDK"*. React Native 0.76.5's
-> generated `AppDelegate` predates that requirement. Build with Xcode 15.x, or upgrade the app's
-> React Native version. `init-ios.sh` already adds the scene manifest and raises the pod
-> deployment target, but a full `SceneDelegate` migration is still required.
+> On Xcode 26+, `init-ios.sh` also adopts the UIScene life cycle (a `SceneDelegate` plus the
+> matching `Info.plist` entry) and raises the pod deployment target. Without those the app
+> builds but will not launch. Older Xcode is left untouched.
 
 The simulator reaches the gateway on `http://localhost:8080`, so keep
 `port-forward-gateway.sh` running. On a physical device, set `apiBaseUrl` in
