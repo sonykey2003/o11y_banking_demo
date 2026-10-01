@@ -1,0 +1,159 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sea-bank-mysql-pvc
+  namespace: sea-bank-demo
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: sea-bank-demo
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/component: mysql
+    app.kubernetes.io/part-of: sea-bank-demo
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: sea-bank-demo
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/component: mysql
+    app.kubernetes.io/version: "8.0"
+    app.kubernetes.io/part-of: sea-bank-demo
+spec:
+  replicas: 1
+  # Single-replica DB on a ReadWriteOnce PVC: fully stop the old pod before starting
+  # the new one, or two mysqld processes fight over the same data dir (InnoDB lock).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: mysql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sea-bank-demo
+        app.kubernetes.io/component: mysql
+        app.kubernetes.io/version: "8.0"
+        app.kubernetes.io/part-of: sea-bank-demo
+    spec:
+      initContainers:
+        # Prep the shared log dir so the mysql user (uid 999) can write the general
+        # query log that the tailer sidecar streams to stdout.
+        - name: init-mysql-logdir
+          image: busybox:1.36
+          command:
+            - "sh"
+            - "-c"
+            - "mkdir -p /var/log/mysql && touch /var/log/mysql/general.log && chown -R 999:999 /var/log/mysql && chmod 750 /var/log/mysql"
+          volumeMounts:
+            - name: mysql-logs
+              mountPath: /var/log/mysql
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          # performance_schema is ON by default; raise digest/sql text lengths so
+          # Splunk DBMon captures full query text (query_sample / top_query).
+          args:
+            - "--performance-schema-max-digest-length=4096"
+            - "--max-digest-length=4096"
+            - "--performance-schema-max-sql-text-length=4096"
+            # Full statement audit -> file; the tailer sidecar streams it to stdout so
+            # the collector's file_log receiver ships it to Splunk (index sea_bank_demo).
+            - "--log-output=FILE"
+            - "--general-log=ON"
+            - "--general-log-file=/var/log/mysql/general.log"
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sea-bank-mysql
+                  key: root-password
+            - name: MYSQL_DATABASE
+              value: bankdb
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: sea-bank-mysql
+                  key: username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sea-bank-mysql
+                  key: password
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+            - name: mysql-logs
+              mountPath: /var/log/mysql
+        # Sidecar: stream MySQL's general query log to stdout so the Splunk OTel
+        # collector (file_log) ships it to the sea_bank_demo index
+        # (k8s.container.name=mysql-log-tailer).
+        - name: mysql-log-tailer
+          image: busybox:1.36
+          command: ["/bin/sh", "-c"]
+          args:
+            - "exec tail -n0 -F /var/log/mysql/general.log"
+          volumeMounts:
+            - name: mysql-logs
+              mountPath: /var/log/mysql
+              readOnly: true
+          resources:
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+              cpu: "100m"
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: sea-bank-mysql-pvc
+        - name: init-sql
+          configMap:
+            name: sea-bank-mysql-init-sql
+        - name: mysql-logs
+          emptyDir: {}

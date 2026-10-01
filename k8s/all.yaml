@@ -1,0 +1,377 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+  name: sea-bank-demo
+---
+apiVersion: v1
+data:
+  DEPLOYMENT_ENVIRONMENT: demoBanking-rum
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+  name: sea-bank-demo-config
+  namespace: sea-bank-demo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: account-service
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+  name: account-service
+  namespace: sea-bank-demo
+spec:
+  ports:
+  - name: http
+    port: 8082
+    targetPort: 8082
+  selector:
+    app.kubernetes.io/component: account-service
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+  name: api-gateway
+  namespace: sea-bank-demo
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/component: api-gateway
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+  name: api-gateway-nodeport
+  namespace: sea-bank-demo
+spec:
+  ports:
+  - name: http
+    nodePort: 30080
+    port: 8080
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/component: api-gateway
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: auth-service
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+  name: auth-service
+  namespace: sea-bank-demo
+spec:
+  ports:
+  - name: http
+    port: 8081
+    targetPort: 8081
+  selector:
+    app.kubernetes.io/component: auth-service
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: transfer-service
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+  name: transfer-service
+  namespace: sea-bank-demo
+spec:
+  ports:
+  - name: http
+    port: 8083
+    targetPort: 8083
+  selector:
+    app.kubernetes.io/component: transfer-service
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: account-service
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+    app.kubernetes.io/version: 0.1.0
+  name: account-service
+  namespace: sea-bank-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: account-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: account-service
+        app.kubernetes.io/name: sea-bank-demo
+        app.kubernetes.io/part-of: sea-bank-demo
+        app.kubernetes.io/version: 0.1.0
+    spec:
+      containers:
+      - env:
+        - name: SERVICE_NAME
+          value: account-service
+        - name: PORT
+          value: "8082"
+        envFrom:
+        - configMapRef:
+            name: sea-bank-demo-config
+        image: localhost/sea-bank-demo/account-service:0.1.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8082
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        name: account-service
+        ports:
+        - containerPort: 8082
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: 8082
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        startupProbe:
+          failureThreshold: 20
+          httpGet:
+            path: /healthz
+            port: 8082
+          periodSeconds: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+    app.kubernetes.io/version: 0.1.0
+  name: api-gateway
+  namespace: sea-bank-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: api-gateway
+        app.kubernetes.io/name: sea-bank-demo
+        app.kubernetes.io/part-of: sea-bank-demo
+        app.kubernetes.io/version: 0.1.0
+    spec:
+      containers:
+      - env:
+        - name: SERVICE_NAME
+          value: api-gateway
+        - name: PORT
+          value: "8080"
+        - name: AUTH_URL
+          value: http://auth-service:8081
+        - name: ACCOUNT_URL
+          value: http://account-service:8082
+        - name: TRANSFER_URL
+          value: http://transfer-service:8083
+        envFrom:
+        - configMapRef:
+            name: sea-bank-demo-config
+        image: localhost/sea-bank-demo/api-gateway:0.1.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        name: api-gateway
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        startupProbe:
+          failureThreshold: 20
+          httpGet:
+            path: /healthz
+            port: 8080
+          periodSeconds: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: auth-service
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+    app.kubernetes.io/version: 0.1.0
+  name: auth-service
+  namespace: sea-bank-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: auth-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: auth-service
+        app.kubernetes.io/name: sea-bank-demo
+        app.kubernetes.io/part-of: sea-bank-demo
+        app.kubernetes.io/version: 0.1.0
+    spec:
+      containers:
+      - env:
+        - name: SERVICE_NAME
+          value: auth-service
+        - name: PORT
+          value: "8081"
+        envFrom:
+        - configMapRef:
+            name: sea-bank-demo-config
+        image: localhost/sea-bank-demo/auth-service:0.1.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        name: auth-service
+        ports:
+        - containerPort: 8081
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        startupProbe:
+          failureThreshold: 20
+          httpGet:
+            path: /healthz
+            port: 8081
+          periodSeconds: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: transfer-service
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+    app.kubernetes.io/version: 0.1.0
+  name: transfer-service
+  namespace: sea-bank-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: transfer-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: transfer-service
+        app.kubernetes.io/name: sea-bank-demo
+        app.kubernetes.io/part-of: sea-bank-demo
+        app.kubernetes.io/version: 0.1.0
+    spec:
+      containers:
+      - env:
+        - name: SERVICE_NAME
+          value: transfer-service
+        - name: PORT
+          value: "8083"
+        - name: ACCOUNT_URL
+          value: http://account-service:8082
+        envFrom:
+        - configMapRef:
+            name: sea-bank-demo-config
+        image: localhost/sea-bank-demo/transfer-service:0.1.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8083
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        name: transfer-service
+        ports:
+        - containerPort: 8083
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: 8083
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        startupProbe:
+          failureThreshold: 20
+          httpGet:
+            path: /healthz
+            port: 8083
+          periodSeconds: 3

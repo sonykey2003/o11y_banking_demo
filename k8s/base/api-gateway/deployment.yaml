@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: sea-bank-demo
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/part-of: sea-bank-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sea-bank-demo
+        app.kubernetes.io/component: api-gateway
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/part-of: sea-bank-demo
+    spec:
+      containers:
+        - name: api-gateway
+          image: localhost/sea-bank-demo/api-gateway:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: sea-bank-demo-config
+          env:
+            - name: SERVICE_NAME
+              value: "api-gateway"
+            - name: PORT
+              value: "8080"
+            - name: AUTH_URL
+              value: "http://auth-service:8081"
+            - name: ACCOUNT_URL
+              value: "http://account-service:8082"
+            - name: TRANSFER_URL
+              value: "http://transfer-service:8083"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 3
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3

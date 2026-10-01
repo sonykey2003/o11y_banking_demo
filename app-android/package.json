@@ -1,0 +1,35 @@
+{
+  "name": "SeaBankDemo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SEA Bank demo — the Android build of the re-brandable React Native banking app (login, balance, transfer) for Splunk RUM / AppDynamics mobile RUM demos.",
+  "scripts": {
+    "start": "react-native start",
+    "android": "react-native run-android",
+    "tsc": "tsc --noEmit",
+    "appd:instrument": "node node_modules/@appdynamics/react-native-agent/bin/cli.js install"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-native": "0.77.3",
+    "@splunk/otel-react-native": "1.1.0",
+    "@appdynamics/react-native-agent": "26.6.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "^16.0.0",
+    "@react-native-community/cli-platform-android": "^16.0.0",
+    "@react-native-community/cli-platform-ios": "^16.0.0",
+    "@react-native/babel-preset": "0.77.3",
+    "@react-native/metro-config": "0.77.3",
+    "@react-native/typescript-config": "0.77.3",
+    "@types/react": "^18.3.12",
+    "react-native-dotenv": "^3.4.11",
+    "typescript": "5.0.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

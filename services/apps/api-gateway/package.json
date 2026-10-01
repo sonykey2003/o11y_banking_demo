@@ -1,0 +1,24 @@
+{
+  "name": "@sea-bank/api-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BFF gateway for the SEA Bank demo: the only backend the mobile app talks to.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "SERVICE_NAME=api-gateway tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@sea-bank/common": "*",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: transfer-service
+  namespace: sea-bank-demo
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/component: transfer-service
+    app.kubernetes.io/part-of: sea-bank-demo
+spec:
+  selector:
+    app.kubernetes.io/component: transfer-service
+  ports:
+    - name: http
+      port: 8083
+      targetPort: 8083
+  type: ClusterIP

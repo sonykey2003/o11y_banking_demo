@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sea-bank-demo-config
+  namespace: sea-bank-demo
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+data:
+  # Surfaced as a resource attribute by the (out-of-band) instrumentation layer and
+  # stamped onto every JSON log line by the app logger. This is the environment tag
+  # that Splunk O11y (deployment.environment) and AppDynamics group the demo under.
+  DEPLOYMENT_ENVIRONMENT: "demoBanking-rum"
+  # MySQL data tier (bankdb). Credentials come from the sea-bank-mysql secret.
+  DB_HOST: "mysql.sea-bank-demo.svc.cluster.local"
+  DB_PORT: "3306"
+  DB_NAME: "bankdb"

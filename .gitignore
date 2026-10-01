@@ -1,0 +1,34 @@
+# Secrets — never commit. Only *.env.example templates are tracked.
+.env
+*.env
+.env.*
+!.env.example
+!*.env.example
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# React Native generated native projects (recreated by scripts/init-ios.sh / init-android.sh)
+app-ios/ios/
+app-ios/android/
+app-android/ios/
+app-android/android/
+Pods/
+*.xcworkspace/xcuserdata/
+.gradle/
+
+# Rendered Helm values / temp output
+*.rendered
+*.rendered.yaml
+.rendered/
+
+# Kubernetes secrets materialised from the *.example.yaml templates
+k8s/base/secret-mysql.yaml
+k8s/base/mysql/secret.yaml
+
+# macOS
+.DS_Store

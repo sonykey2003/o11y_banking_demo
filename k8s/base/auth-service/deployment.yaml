@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: sea-bank-demo
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/component: auth-service
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/part-of: sea-bank-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: auth-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sea-bank-demo
+        app.kubernetes.io/component: auth-service
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/part-of: sea-bank-demo
+    spec:
+      containers:
+        - name: auth-service
+          image: localhost/sea-bank-demo/auth-service:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: sea-bank-demo-config
+          env:
+            - name: SERVICE_NAME
+              value: "auth-service"
+            - name: PORT
+              value: "8081"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            periodSeconds: 3
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3

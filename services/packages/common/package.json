@@ -1,0 +1,21 @@
+{
+  "name": "@sea-bank/common",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared telemetry (OpenTelemetry API only), fault-injection, logging and HTTP helpers for the SEA Bank demo services.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "express": "^4.21.2",
+    "mysql2": "^3.11.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

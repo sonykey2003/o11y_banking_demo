@@ -1,0 +1,21 @@
+# Optional NodePort so the mobile app / browser can reach the gateway without a
+# port-forward (e.g. http://$(minikube ip):30080). scripts/port-forward-gateway.sh
+# is the simpler default; use this when you want a stable node-level address.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-nodeport
+  namespace: sea-bank-demo
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/part-of: sea-bank-demo
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/component: api-gateway
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30080

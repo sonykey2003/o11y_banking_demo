@@ -1,0 +1,7 @@
+node_modules/
+# Native projects are generated once by ../scripts/init-app.sh (not committed).
+ios/
+android/
+*.log
+.env
+.env.local

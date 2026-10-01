@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: sea-bank-demo
+
+resources:
+  # Namespace (must be first)
+  - namespace.yaml
+  # Shared ConfigMap
+  - configmap-app.yaml
+  # Data tier (MySQL) — secret sea-bank-mysql created out-of-band (see secret-mysql.example.yaml)
+  - mysql/configmap-init-sql.yaml
+  - mysql/deployment.yaml
+  # Application services
+  - auth-service/deployment.yaml
+  - auth-service/service.yaml
+  - account-service/deployment.yaml
+  - account-service/service.yaml
+  - transfer-service/deployment.yaml
+  - transfer-service/service.yaml
+  - api-gateway/deployment.yaml
+  - api-gateway/service.yaml
+  - api-gateway/gateway-nodeport.yaml

@@ -1,0 +1,39 @@
+{
+  "name": "SeaBankDemo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SEA Bank demo — a re-brandable React Native banking app (login, balance, transfer) for Splunk RUM / AppDynamics mobile RUM demos.",
+  "scripts": {
+    "start": "react-native start",
+    "ios": "react-native run-ios",
+    "pods": "cd ios && pod install",
+    "tsc": "tsc --noEmit",
+    "postinstall": "patch-package",
+    "appd:instrument": "node node_modules/@appdynamics/react-native-agent/bin/cli.js install"
+  },
+  "dependencies": {
+    "@appdynamics/react-native-agent": "26.6.1",
+    "@splunk/otel-react-native": "1.1.0",
+    "react": "18.3.1",
+    "react-native": "0.76.5",
+    "splunk-errors": "file:modules/splunk-errors"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "^15.0.0",
+    "@react-native-community/cli-platform-android": "^15.0.0",
+    "@react-native-community/cli-platform-ios": "^15.0.0",
+    "@react-native/babel-preset": "0.76.5",
+    "@react-native/metro-config": "0.76.5",
+    "@react-native/typescript-config": "0.76.5",
+    "@types/react": "^18.3.12",
+    "patch-package": "^8.0.1",
+    "react-native-dotenv": "^3.4.11",
+    "typescript": "5.0.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

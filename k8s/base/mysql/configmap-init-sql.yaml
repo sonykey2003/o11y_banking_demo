@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sea-bank-mysql-init-sql
+  namespace: sea-bank-demo
+  labels:
+    app.kubernetes.io/name: sea-bank-demo
+    app.kubernetes.io/part-of: sea-bank-demo
+data:
+  # Runs on first MySQL init via /docker-entrypoint-initdb.d/ (empty data dir only).
+  # For an already-initialised volume, scripts/splunk-dbmon.sh prep re-applies the
+  # monitoring grants. The `otel` DBMon user is created by scripts/splunk-dbmon.sh
+  # (password kept out of git), not here.
+  init.sql: |
+    -- =====================================================================
+    -- SEA Bank demo — MySQL initialisation (database: bankdb)
+    -- =====================================================================
+    USE bankdb;
+
+    CREATE TABLE IF NOT EXISTS accounts (
+      id           VARCHAR(16)   NOT NULL PRIMARY KEY,
+      customer_id  VARCHAR(16)   NOT NULL,
+      type         ENUM('SAVINGS','CURRENT') NOT NULL,
+      name         VARCHAR(64)   NOT NULL,
+      currency     CHAR(3)       NOT NULL DEFAULT 'SGD',
+      balance      DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+      created_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_accounts_customer (customer_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS transactions (
+      id           VARCHAR(24)   NOT NULL PRIMARY KEY,
+      account_id   VARCHAR(16)   NOT NULL,
+      ts           TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      amount       DECIMAL(15,2) NOT NULL,
+      type         ENUM('CREDIT','DEBIT') NOT NULL,
+      description  VARCHAR(128)  NOT NULL,
+      INDEX idx_txn_account (account_id),
+      INDEX idx_txn_ts (ts)
+    );
+
+    CREATE TABLE IF NOT EXISTS transfers (
+      id              VARCHAR(24)   NOT NULL PRIMARY KEY,
+      customer_id     VARCHAR(16)   NOT NULL,
+      from_account_id VARCHAR(16)   NOT NULL,
+      to_account_id   VARCHAR(16)   NOT NULL,
+      amount          DECIMAL(15,2) NOT NULL,
+      currency        CHAR(3)       NOT NULL DEFAULT 'SGD',
+      status          ENUM('PENDING','COMPLETED','FAILED') NOT NULL DEFAULT 'PENDING',
+      created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      completed_at    TIMESTAMP     NULL,
+      error           VARCHAR(255)  NULL,
+      INDEX idx_transfers_customer (customer_id),
+      INDEX idx_transfers_status (status)
+    );
+
+    -- Seed accounts
+    INSERT INTO accounts (id, customer_id, type, name, currency, balance) VALUES
+      ('ACC-1001','CUST-0001','SAVINGS','Everyday Savings','SGD',12500.50),
+      ('ACC-1002','CUST-0001','CURRENT','Current Account','SGD',3200.00),
+      ('ACC-2001','CUST-0002','SAVINGS','Everyday Savings','SGD',8800.75),
+      ('ACC-3001','CUST-0003','SAVINGS','Everyday Savings','SGD',15000.00),
+      ('ACC-3002','CUST-0003','CURRENT','Current Account','SGD',450.25)
+    AS new ON DUPLICATE KEY UPDATE balance = new.balance;
+
+    -- Seed transactions
+    INSERT INTO transactions (id, account_id, ts, amount, type, description) VALUES
+      ('TXN-1001','ACC-1001', NOW() - INTERVAL 3 DAY, 2500.00,'CREDIT','Salary'),
+      ('TXN-1002','ACC-1001', NOW() - INTERVAL 2 DAY,   89.90,'DEBIT','Groceries'),
+      ('TXN-1003','ACC-1002', NOW() - INTERVAL 1 DAY,   45.00,'DEBIT','Transport'),
+      ('TXN-1004','ACC-2001', NOW() - INTERVAL 5 DAY, 1200.00,'CREDIT','Refund')
+    AS new ON DUPLICATE KEY UPDATE amount = new.amount;

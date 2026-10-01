@@ -1,0 +1,94 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Splunk Database Monitoring (DBMon) — MySQL receiver overlay (SEA Bank backend)
+#
+# Merged onto the `splunk-otel-collector` release (in OTEL_NAMESPACE=splunk-otel)
+# by scripts/splunk-dbmon.sh. Adds the OTel `mysql` DBMon receiver scraping the
+# bankdb MySQL instance in sea-bank-demo, plus the dedicated DBMon export path so
+# it shows under APM > Database Monitoring (query stats, top queries, explain plans).
+#
+# Requires splunk-otel-collector chart shipping collector >= v0.154.0 (mysql DBMon).
+#
+# Placeholders:
+#   __SPLUNK_REALM__                          -> substituted by scripts/splunk-dbmon.sh
+#   ${env:SPLUNK_OBSERVABILITY_ACCESS_TOKEN}  -> expanded by the collector at runtime
+#   ${env:SEABANK_MYSQL_USER/PASSWORD}        -> expanded by the collector at runtime
+#
+# The monitoring creds live in the sea-bank-dbmon secret IN THE COLLECTOR NAMESPACE
+# (splunk-otel), created by scripts/splunk-dbmon.sh prep (collector reads secrets
+# from its own namespace, and it is separate from the app's sea-bank-demo namespace).
+# ─────────────────────────────────────────────────────────────────────────────
+agent:
+  extraEnvs:
+    - name: SEABANK_MYSQL_USER
+      valueFrom:
+        secretKeyRef:
+          name: sea-bank-dbmon
+          key: username
+    - name: SEABANK_MYSQL_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: sea-bank-dbmon
+          key: password
+
+  config:
+    receivers:
+      mysql:
+        collection_interval: 10s
+        endpoint: mysql.sea-bank-demo.svc.cluster.local:3306
+        username: ${env:SEABANK_MYSQL_USER}
+        password: ${env:SEABANK_MYSQL_PASSWORD}
+        events:
+          db.server.query_sample:
+            enabled: true
+          db.server.top_query:
+            enabled: true
+        resource_attributes:
+          mysql.instance.endpoint:
+            enabled: true
+
+    processors:
+      # DBMon uses the endpoint as the instance identity.
+      resource/mysql_service_instance_id:
+        attributes:
+          - action: insert
+            from_attribute: mysql.instance.endpoint
+            key: service.instance.id
+
+    exporters:
+      otlp_http/dbmon:
+        logs_endpoint: https://ingest.__SPLUNK_REALM__.observability.splunkcloud.com/v3/event
+        headers:
+          X-SF-Token: ${env:SPLUNK_OBSERVABILITY_ACCESS_TOKEN}
+          X-splunk-instrumentation-library: dbmon
+        sending_queue:
+          batch:
+            flush_timeout: 15s
+            max_size: 10485760
+            sizer: bytes
+
+    service:
+      pipelines:
+        # Health/perf metrics -> SignalFx. `resource` stamps k8s.cluster.name so the
+        # instance is filterable by cluster / deployment.environment in the DBMon UI.
+        metrics/dbmon:
+          receivers:
+            - mysql
+          processors:
+            - memory_limiter
+            - batch
+            - resourcedetection
+            - resource
+            - resource/mysql_service_instance_id
+          exporters:
+            - signalfx
+        # Query events (top_query / query_sample) -> DBMon event endpoint.
+        logs/dbmon:
+          receivers:
+            - mysql
+          processors:
+            - memory_limiter
+            - batch
+            - resource
+            - resource/mysql_service_instance_id
+          exporters:
+            - otlp_http/dbmon

@@ -1,0 +1,21 @@
+{
+  "name": "sea-bank-demo-services",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node.js/TypeScript microservices for the SEA Bank RUM/APM demo (login, balance, transfer).",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "clean": "rm -rf apps/*/dist packages/*/dist",
+    "dev:gateway": "npm run dev -w @sea-bank/api-gateway",
+    "dev:auth": "npm run dev -w @sea-bank/auth-service",
+    "dev:account": "npm run dev -w @sea-bank/account-service",
+    "dev:transfer": "npm run dev -w @sea-bank/transfer-service"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

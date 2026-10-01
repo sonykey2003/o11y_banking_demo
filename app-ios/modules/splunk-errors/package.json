@@ -1,0 +1,10 @@
+{
+  "name": "splunk-errors",
+  "version": "0.0.1",
+  "description": "Native bridge to the Splunk RUM handled-error API (feeds rum.app_error.count). The @splunk/otel-react-native JS agent does not expose trackError/trackException; this local module calls the native SDK directly.",
+  "main": "index.js",
+  "react-native": "index.js",
+  "private": true,
+  "keywords": ["react-native", "splunk", "rum"],
+  "license": "Apache-2.0"
+}
