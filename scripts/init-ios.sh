@@ -65,16 +65,60 @@ PY
   echo "    Raised pod IPHONEOS_DEPLOYMENT_TARGET to ${MIN_IOS} (AppDynamics pods ship 11.0/13.0)"
 fi
 
-# Apps built against the iOS 26+ SDK must declare UIScene adoption or UIKit refuses to
-# launch them. Skipped on older Xcode, which neither needs nor expects the key.
+# Apps built against the iOS 26+ SDK must adopt the UIScene life cycle or UIKit refuses
+# to launch them. RN 0.76's RCTAppDelegate still builds the window itself, so add a
+# SceneDelegate that re-parents that window onto the scene. Skipped on older Xcode,
+# which neither needs nor expects any of this.
 PLIST="${APP_DIR}/ios/${APP_NAME}/Info.plist"
-if [[ -f "${PLIST}" && -n "${XCODE_MAJOR}" && "${XCODE_MAJOR}" -ge 26 ]] \
-   && ! /usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest" "${PLIST}" >/dev/null 2>&1; then
-  /usr/libexec/PlistBuddy \
-    -c "Add :UIApplicationSceneManifest dict" \
-    -c "Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false" \
-    "${PLIST}" >/dev/null
-  echo "    Added UIApplicationSceneManifest to Info.plist (required by the iOS 26+ SDK)"
+APPDELEGATE="${APP_DIR}/ios/${APP_NAME}/AppDelegate.mm"
+if [[ -n "${XCODE_MAJOR}" && "${XCODE_MAJOR}" -ge 26 ]]; then
+  # The class lives in AppDelegate.mm so no new file has to be registered in the
+  # Xcode project; Objective-C only needs it present in the binary.
+  if [[ -f "${APPDELEGATE}" ]] && ! grep -q '@implementation SceneDelegate' "${APPDELEGATE}"; then
+    cat >> "${APPDELEGATE}" <<'OBJC'
+
+// ── UIScene adoption (required by the iOS 26+ SDK) ───────────────────────────
+@interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
+@property (nonatomic, strong) UIWindow *window;
+@end
+
+@implementation SceneDelegate
+
+- (void)scene:(UIScene *)scene
+    willConnectToSession:(UISceneSession *)session
+                 options:(UISceneConnectionOptions *)connectionOptions
+{
+  if (![scene isKindOfClass:[UIWindowScene class]]) {
+    return;
+  }
+  UIWindowScene *windowScene = (UIWindowScene *)scene;
+  UIWindow *existing = [(AppDelegate *)UIApplication.sharedApplication.delegate window];
+  if (existing) {
+    existing.windowScene = windowScene;
+    self.window = existing;
+    [existing makeKeyAndVisible];
+  }
+}
+
+@end
+OBJC
+    echo "    Added SceneDelegate to AppDelegate.mm (iOS 26+ UIScene requirement)"
+  fi
+
+  if [[ -f "${PLIST}" ]] && ! /usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest:UISceneConfigurations" "${PLIST}" >/dev/null 2>&1; then
+    /usr/libexec/PlistBuddy -c "Delete :UIApplicationSceneManifest" "${PLIST}" >/dev/null 2>&1 || true
+    _k=":UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication"
+    /usr/libexec/PlistBuddy \
+      -c "Add :UIApplicationSceneManifest dict" \
+      -c "Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false" \
+      -c "Add :UIApplicationSceneManifest:UISceneConfigurations dict" \
+      -c "Add ${_k} array" \
+      -c "Add ${_k}:0 dict" \
+      -c "Add ${_k}:0:UISceneConfigurationName string 'Default Configuration'" \
+      -c "Add ${_k}:0:UISceneDelegateClassName string SceneDelegate" \
+      "${PLIST}" >/dev/null
+    echo "    Wrote UIApplicationSceneManifest to Info.plist"
+  fi
 fi
 
 echo "==> [3/4] Installing CocoaPods (links native modules incl. RUM SDKs)"
