@@ -40,6 +40,10 @@ Start Docker Desktop and confirm it is running before step 3.
 | iOS | macOS, Xcode 15+ with Command Line Tools, CocoaPods (`sudo gem install cocoapods`), Watchman (`brew install watchman`) |
 | Android | Android Studio, Android SDK, JDK 17, an emulator (AVD) |
 
+> **Xcode 26 / macOS 26 and newer:** Apple replaced `Simulator.app` with `DeviceHub.app`, so
+> `open -a Simulator` no longer works. Use `./scripts/ios-simulator.sh`, which opens whichever
+> is present. The same SDK versions also require UIScene adoption — see the iOS note in step 9.
+
 Mobile RUM also needs a **RUM access token** (O11y → Settings → Access Tokens →
 RUM authorization). This is a *different* token from the ingest one above.
 
@@ -207,8 +211,19 @@ Results land in O11y → **APM → Database Query Performance**.
 
 ```bash
 ./scripts/init-ios.sh          # one-time: installs deps, generates app-ios/ios
+./scripts/ios-simulator.sh     # boots a simulator and opens the GUI
 cd app-ios && npm run ios
 ```
+
+`ios-simulator.sh` picks `DeviceHub.app` (Xcode 26+) or `Simulator.app` (older), reusing an
+already-booted device. Pass a device name or set `IOS_SIM_DEVICE` to choose, or `IOS_SIM_APP`
+to point at a GUI app elsewhere.
+
+> **Known issue on Xcode 26+:** the app builds and installs but will not launch — UIKit reports
+> *"UIScene life cycle is required for apps built with this SDK"*. React Native 0.76.5's
+> generated `AppDelegate` predates that requirement. Build with Xcode 15.x, or upgrade the app's
+> React Native version. `init-ios.sh` already adds the scene manifest and raises the pod
+> deployment target, but a full `SceneDelegate` migration is still required.
 
 The simulator reaches the gateway on `http://localhost:8080`, so keep
 `port-forward-gateway.sh` running. On a physical device, set `apiBaseUrl` in

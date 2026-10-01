@@ -39,6 +39,7 @@ fi
 
 # The AppDynamics pods declare deployment targets of 11.0/13.0; Xcode 16+ rejects
 # anything below 15.0, so raise every pod target before `pod install` links them.
+XCODE_MAJOR="$(xcodebuild -version 2>/dev/null | head -1 | sed -E 's/Xcode ([0-9]+).*/\1/')"
 PODFILE="${APP_DIR}/ios/Podfile"
 MIN_IOS="15.1"
 if [[ -f "${PODFILE}" ]] && ! grep -q 'IPHONEOS_DEPLOYMENT_TARGET' "${PODFILE}"; then
@@ -65,10 +66,10 @@ PY
 fi
 
 # Apps built against the iOS 26+ SDK must declare UIScene adoption or UIKit refuses to
-# launch them. RN 0.76's generated AppDelegate predates that; an empty scene manifest
-# satisfies the requirement without a full SceneDelegate migration.
+# launch them. Skipped on older Xcode, which neither needs nor expects the key.
 PLIST="${APP_DIR}/ios/${APP_NAME}/Info.plist"
-if [[ -f "${PLIST}" ]] && ! /usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest" "${PLIST}" >/dev/null 2>&1; then
+if [[ -f "${PLIST}" && -n "${XCODE_MAJOR}" && "${XCODE_MAJOR}" -ge 26 ]] \
+   && ! /usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest" "${PLIST}" >/dev/null 2>&1; then
   /usr/libexec/PlistBuddy \
     -c "Add :UIApplicationSceneManifest dict" \
     -c "Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false" \
