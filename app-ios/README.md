@@ -62,7 +62,7 @@ Demo users: `demo/demo`, `alice/password`, `bob/password`.
 
 ## RUM
 
-Off by default. See [../docs/RUM.md](../docs/RUM.md) to enable Splunk or AppDynamics. The
+Off by default. See [../README.md](../README.md) to enable Splunk or AppDynamics. The
 telemetry facade is a safe no-op until a provider + token/appKey is configured.
 
 ## Type-check

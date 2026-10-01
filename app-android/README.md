@@ -54,7 +54,7 @@ Demo users: `demo/demo`, `alice/password`, `bob/password`.
 Off by default. Put a **RUM** access token in the gitignored `.env`
 (`ANDROID_SPLUNK_RUM_ACCESS_TOKEN=…`), set `rum.provider` in `src/config.ts` if needed, then
 rebuild (restart Metro with `npm start -- --reset-cache` after editing `.env`). See
-[../docs/RUM.md](../docs/RUM.md).
+[../README.md](../README.md).
 
 ## Type-check
 ```bash

@@ -253,8 +253,6 @@ minikube delete -p sea-bank-demo
 
 ## Troubleshooting
 
-Start with [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md). Most common issues:
-
 | Symptom | Fix |
 |---|---|
 | Pods stuck `ImagePullBackOff` | You built images on the host daemon. Re-run `eval "$(minikube -p sea-bank-demo docker-env)"` then `./scripts/build-images.sh` |
@@ -264,19 +262,6 @@ Start with [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md). Most common issue
 
 ---
 
-## Documentation
-
-| Document | Contents |
-|---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Services, data model, request and trace flows |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment detail and configuration reference |
-| [docs/INSTRUMENTATION.md](docs/INSTRUMENTATION.md) | Collector, operator, and resource attributes |
-| [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | What to show in O11y, and where |
-| [docs/RUM.md](docs/RUM.md) | Mobile RUM setup for both platforms |
-| [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md) | Suggested live demo sequence |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Known issues and fixes |
-| [docs/DATA_AND_PRIVACY.md](docs/DATA_AND_PRIVACY.md) | Synthetic data statement |
-
 ## Repository layout
 
 ```
@@ -285,5 +270,4 @@ k8s/           kustomize base + demo overlay; mysql data tier; dbmon collector o
 scripts/       build / deploy / smoke-test / load / fault-inject + splunk-*.sh
 app-ios/       React Native iOS app
 app-android/   React Native Android app
-docs/          architecture, deployment, instrumentation, RUM, runbook
 ```

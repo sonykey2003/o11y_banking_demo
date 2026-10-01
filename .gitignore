@@ -30,5 +30,8 @@ Pods/
 k8s/base/secret-mysql.yaml
 k8s/base/mysql/secret.yaml
 
+# Internal engineering notes — not distributed.
+docs/
+
 # macOS
 .DS_Store

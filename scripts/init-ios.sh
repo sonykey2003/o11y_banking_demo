@@ -62,5 +62,5 @@ Next:
   3. Run the app:
        cd app-ios && npm run ios
   4. (Optional) Enable RUM: set rum.provider + token/appKey in app-ios/src/config.ts.
-     See docs/RUM.md.
+     See the README.
 EOF
