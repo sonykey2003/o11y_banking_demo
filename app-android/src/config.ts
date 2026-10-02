@@ -7,7 +7,18 @@
 // SECURITY: secrets come from app/.env (gitignored), read at build time via
 // react-native-dotenv — they are NOT committed in this file.
 import {Platform} from 'react-native';
-import {ANDROID_SPLUNK_RUM_ACCESS_TOKEN, ANDROID_APPDYNAMICS_APP_KEY} from '@env';
+import {
+  ANDROID_SPLUNK_RUM_ACCESS_TOKEN,
+  ANDROID_APPDYNAMICS_APP_KEY,
+  ANDROID_SPLUNK_REALM,
+  ANDROID_RUM_APP_NAME,
+  ANDROID_RUM_ENVIRONMENT,
+} from '@env';
+
+// Identity shown in O11y. Override in app-android/.env to avoid clashing on a shared instance.
+const REALM = ANDROID_SPLUNK_REALM || 'us1';
+const RUM_APP = ANDROID_RUM_APP_NAME || 'demoBanking-rum-android';
+const RUM_ENV = ANDROID_RUM_ENVIRONMENT || 'demoBanking-rum';
 
 export type RumProvider = 'none' | 'splunk' | 'appdynamics';
 
@@ -37,14 +48,14 @@ export const config: AppConfig = {
   // On a physical device use your machine's LAN IP.
   apiBaseUrl: Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'http://localhost:8080',
   defaultBrandId: 'dbs',
-  environment: 'demoBanking-rum',
+  environment: RUM_ENV,
   rum: {
     provider: 'splunk', // 'splunk' | 'appdynamics' | 'none'
     splunk: {
-      realm: 'us1',
-      rumAccessToken: ANDROID_SPLUNK_RUM_ACCESS_TOKEN || '', // from app/.env (gitignored)
-      applicationName: 'demoBanking-rum-android',
-      deploymentEnvironment: 'demoBanking-rum',
+      realm: REALM,
+      rumAccessToken: ANDROID_SPLUNK_RUM_ACCESS_TOKEN || '', // from app-android/.env (gitignored)
+      applicationName: RUM_APP,
+      deploymentEnvironment: RUM_ENV,
     },
     appdynamics: {
       appKey: ANDROID_APPDYNAMICS_APP_KEY || '', // from app/.env (gitignored)

@@ -52,6 +52,58 @@ RUM authorization). This is a *different* token from the ingest one above.
 Log Observer Connect requires a **Splunk Cloud stack** plus an admin login and a
 HEC token. Skip section 7 if you do not have one; APM, DBMon, and RUM work without it.
 
+### Naming — important on a shared O11y instance
+
+Every name this demo reports is configurable. If several people point this at the **same**
+Splunk Observability instance, change them or your data merges with theirs.
+
+Pick a unique prefix (your initials, ticket number, whatever) and apply it consistently.
+
+**Backend** — in `.env` at the repo root:
+
+| Variable | Default | Appears in O11y as |
+|---|---|---|
+| `DEMO_ENVIRONMENT` | `demoBanking-rum` | `deployment.environment` — the main APM/RUM filter |
+| `DEMO_CLUSTER_NAME` | `sea-bank-demo` | `k8s.cluster.name` in Infrastructure |
+| `DEMO_SPLUNK_INDEX` | `sea_bank_demo` | Splunk index holding the logs |
+| `DEMO_APP_NAMESPACE` | `sea-bank-demo` | Kubernetes namespace (local only) |
+| `DEMO_OTEL_NAMESPACE` | `splunk-otel` | Collector namespace (local only) |
+
+**Mobile** — in `app-ios/.env` and `app-android/.env`:
+
+| Variable | Default |
+|---|---|
+| `IOS_RUM_APP_NAME` / `ANDROID_RUM_APP_NAME` | `demoBanking-rum-ios` / `-android` |
+| `IOS_RUM_ENVIRONMENT` / `ANDROID_RUM_ENVIRONMENT` | `demoBanking-rum` |
+| `IOS_SPLUNK_REALM` / `ANDROID_SPLUNK_REALM` | `us1` |
+
+For example, to namespace everything as `acme`:
+
+```bash
+# .env
+export DEMO_ENVIRONMENT="acme-banking"
+export DEMO_CLUSTER_NAME="acme-banking"
+export DEMO_SPLUNK_INDEX="acme_banking"
+
+# app-ios/.env
+IOS_RUM_APP_NAME=acme-banking-ios
+IOS_RUM_ENVIRONMENT=acme-banking
+
+# app-android/.env
+ANDROID_RUM_APP_NAME=acme-banking-android
+ANDROID_RUM_ENVIRONMENT=acme-banking
+```
+
+Keep `DEMO_ENVIRONMENT` and the two `*_RUM_ENVIRONMENT` values **identical** — that is what
+ties mobile RUM sessions to the backend traces they triggered.
+
+Service names (`api-gateway`, `auth-service`, …) are deliberately left alone; APM scopes
+them by environment, so they do not collide.
+
+> Set these **before** step 3. Changing `DEMO_ENVIRONMENT` later means re-running
+> `./scripts/deploy.sh` and `./scripts/splunk-instrumentation.sh all`, and rebuilding the
+> mobile apps.
+
 ---
 
 ## 2. Configure
@@ -68,6 +120,9 @@ Edit `.env` and set at minimum:
 export SPLUNK_REALM="us1"          # your realm
 export SPLUNK_ACCESS_TOKEN="..."   # your ingest token
 ```
+
+If you are sharing an O11y instance, also set the identity values now — see
+[Naming](#naming--important-on-a-shared-o11y-instance) above.
 
 `.env` is gitignored. Leave the rest at their defaults for a first run.
 
@@ -294,16 +349,21 @@ cp app-ios/.env.example app-ios/.env
 ```
 
 The token is read at build time by `react-native-dotenv` and consumed in
-[app-ios/src/config.ts](app-ios/src/config.ts):
+[app-ios/src/config.ts](app-ios/src/config.ts). Identity falls back to the defaults when
+the corresponding `.env` entry is blank:
 
 ```ts
+const REALM   = IOS_SPLUNK_REALM      || 'us1';
+const RUM_APP = IOS_RUM_APP_NAME      || 'demoBanking-rum-ios';
+const RUM_ENV = IOS_RUM_ENVIRONMENT   || 'demoBanking-rum';
+
 rum: {
-  provider: 'splunk',                       // 'splunk' | 'appdynamics' | 'none'
+  provider: 'splunk',                 // 'splunk' | 'appdynamics' | 'none'
   splunk: {
-    realm: 'us1',                           // change if your realm differs
+    realm: REALM,
     rumAccessToken: IOS_SPLUNK_RUM_ACCESS_TOKEN || '',
-    applicationName: 'demoBanking-rum-ios',
-    deploymentEnvironment: 'demoBanking-rum',
+    applicationName: RUM_APP,
+    deploymentEnvironment: RUM_ENV,
   },
 },
 ```
@@ -359,11 +419,15 @@ Config is the same shape as iOS, with its own app name
 ([app-android/src/config.ts](app-android/src/config.ts)):
 
 ```ts
+const REALM   = ANDROID_SPLUNK_REALM    || 'us1';
+const RUM_APP = ANDROID_RUM_APP_NAME    || 'demoBanking-rum-android';
+const RUM_ENV = ANDROID_RUM_ENVIRONMENT || 'demoBanking-rum';
+
 splunk: {
-  realm: 'us1',
+  realm: REALM,
   rumAccessToken: ANDROID_SPLUNK_RUM_ACCESS_TOKEN || '',
-  applicationName: 'demoBanking-rum-android',
-  deploymentEnvironment: 'demoBanking-rum',
+  applicationName: RUM_APP,
+  deploymentEnvironment: RUM_ENV,
 },
 ```
 

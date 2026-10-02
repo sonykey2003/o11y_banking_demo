@@ -6,7 +6,18 @@
 //
 // SECURITY: secrets come from app/.env (gitignored), read at build time via
 // react-native-dotenv — they are NOT committed in this file.
-import {IOS_SPLUNK_RUM_ACCESS_TOKEN, IOS_APPDYNAMICS_APP_KEY} from '@env';
+import {
+  IOS_SPLUNK_RUM_ACCESS_TOKEN,
+  IOS_APPDYNAMICS_APP_KEY,
+  IOS_SPLUNK_REALM,
+  IOS_RUM_APP_NAME,
+  IOS_RUM_ENVIRONMENT,
+} from '@env';
+
+// Identity shown in O11y. Override in app-ios/.env to avoid clashing on a shared instance.
+const REALM = IOS_SPLUNK_REALM || 'us1';
+const RUM_APP = IOS_RUM_APP_NAME || 'demoBanking-rum-ios';
+const RUM_ENV = IOS_RUM_ENVIRONMENT || 'demoBanking-rum';
 
 export type RumProvider = 'none' | 'splunk' | 'appdynamics';
 
@@ -35,14 +46,14 @@ export const config: AppConfig = {
   // On a physical device replace 'localhost' with your machine's LAN IP.
   apiBaseUrl: 'http://localhost:8080',
   defaultBrandId: 'dbs',
-  environment: 'demoBanking-rum',
+  environment: RUM_ENV,
   rum: {
     provider: 'splunk', // 'splunk' | 'appdynamics' | 'none'
     splunk: {
-      realm: 'us1',
-      rumAccessToken: IOS_SPLUNK_RUM_ACCESS_TOKEN || '', // from app/.env (gitignored)
-      applicationName: 'demoBanking-rum-ios',
-      deploymentEnvironment: 'demoBanking-rum',
+      realm: REALM,
+      rumAccessToken: IOS_SPLUNK_RUM_ACCESS_TOKEN || '', // from app-ios/.env (gitignored)
+      applicationName: RUM_APP,
+      deploymentEnvironment: RUM_ENV,
     },
     appdynamics: {
       appKey: IOS_APPDYNAMICS_APP_KEY || '', // from app/.env (gitignored)
