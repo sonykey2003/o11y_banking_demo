@@ -38,7 +38,7 @@ Start Docker Desktop and confirm it is running before step 3.
 | Platform | Requirements |
 |---|---|
 | iOS | macOS, Xcode 15+ with Command Line Tools, CocoaPods (`sudo gem install cocoapods`), Watchman (`brew install watchman`) |
-| Android | Android Studio, Android SDK, JDK 17, an emulator (AVD) |
+| Android | Android Studio, Android SDK, JDK 17, an emulator (AVD). Export `ANDROID_HOME` before building |
 
 > **Xcode 26 / macOS 26 and newer:** Apple replaced `Simulator.app` with `DeviceHub.app`, so
 > `open -a Simulator` no longer works. Use `./scripts/ios-simulator.sh`, which opens whichever
@@ -241,12 +241,23 @@ Set your realm in `app-ios/src/config.ts` if it is not `us1`, then restart Metro
 
 ## 10. Run the Android app
 
+Export the SDK location first — Gradle needs it, and it is not set by default:
+
 ```bash
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+```
+
+Start an emulator, then build:
+
+```bash
+emulator -avd "$(emulator -list-avds | head -1)" &
 ./scripts/init-android.sh      # one-time: installs deps, generates app-android/android
 cd app-android && npm run android
 ```
 
-The emulator reaches your Mac at `http://10.0.2.2:8080`, already configured.
+The emulator reaches your Mac at `http://10.0.2.2:8080`, already configured. Metro is pinned
+to port **8082** so it never collides with the iOS app on 8081 — both can run at once.
 
 To enable RUM:
 

@@ -4,8 +4,8 @@
   "private": true,
   "description": "SEA Bank demo — the Android build of the re-brandable React Native banking app (login, balance, transfer) for Splunk RUM / AppDynamics mobile RUM demos.",
   "scripts": {
-    "start": "react-native start",
-    "android": "react-native run-android",
+    "start": "react-native start --port 8082",
+    "android": "react-native run-android --port 8082",
     "tsc": "tsc --noEmit",
     "appd:instrument": "node node_modules/@appdynamics/react-native-agent/bin/cli.js install"
   },

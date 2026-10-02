@@ -38,6 +38,21 @@ else
 fi
 
 echo "==> [3/4] Applying Android tweaks"
+
+# Gradle resolves the SDK from local.properties or ANDROID_HOME. The file is
+# machine-specific and gitignored, so generate it when the env var is not exported.
+LOCAL_PROPS="${APP_DIR}/android/local.properties"
+if [[ ! -f "${LOCAL_PROPS}" ]]; then
+  SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${HOME}/Library/Android/sdk}}"
+  if [[ -d "${SDK_DIR}" ]]; then
+    echo "sdk.dir=${SDK_DIR}" > "${LOCAL_PROPS}"
+    echo "    ✓ local.properties -> ${SDK_DIR}"
+  else
+    echo "    ! Android SDK not found at ${SDK_DIR}."
+    echo "      Install it via Android Studio, then export ANDROID_HOME and re-run."
+  fi
+fi
+
 BG="${APP_DIR}/android/app/build.gradle"
 MAN="${APP_DIR}/android/app/src/main/AndroidManifest.xml"
 
