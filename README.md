@@ -371,7 +371,12 @@ rum: {
 The SDK is started once, in [app-ios/src/telemetry/index.ts](app-ios/src/telemetry/index.ts):
 
 ```ts
-import {SplunkRum, NavigationModuleConfiguration} from '@splunk/otel-react-native';
+import {
+  SplunkRum,
+  NavigationModuleConfiguration,
+  SessionReplayModuleConfiguration,
+} from '@splunk/otel-react-native';
+import {SplunkSessionReplay} from '@splunk/otel-session-replay-react-native';
 
 await SplunkRum.install(
   {
@@ -381,8 +386,12 @@ await SplunkRum.install(
     user: {trackingMode: 'ANONYMOUS_TRACKING'},   // DXA needs a user ID; the RN default is NO_TRACKING
     globalAttributes: {'bank.brand': 'dbs'},
   },
-  [new NavigationModuleConfiguration(true, false)], // manual screen tracking, native auto-tracking off
+  [
+    new NavigationModuleConfiguration(true, false), // manual screen tracking, native auto-tracking off
+    new SessionReplayModuleConfiguration(true, 1),   // allow replay for every session
+  ],
 );
+await SplunkSessionReplay.instance.start();         // enabling the module alone does not record
 ```
 
 On iOS no HTTP module is needed — capture via `URLSession` is on by default. The navigation
@@ -455,6 +464,7 @@ const modules = [
   new OkHttp3AutoModuleConfiguration(true),
   new HttpURLModuleConfiguration(true),
   new NavigationModuleConfiguration(true, false), // same as iOS: named screens for DXA
+  new SessionReplayModuleConfiguration(true, 1),   // same as iOS, then SplunkSessionReplay.instance.start()
 ];
 
 await SplunkRum.install(
@@ -545,6 +555,25 @@ one user. Use the iOS simulator and the Android emulator together to get two.
 `bank.transfer.id` and `bank.transfer.amount` are also the correlation key and KPI for
 **Business Insights → Business Journeys**, which is enabled per org through the Splunk account
 team.
+
+### Session replay
+
+Both apps record session replays with `@splunk/otel-session-replay-react-native`, pinned to the
+same version as the RUM agent. The iOS recorder ships inside the agent pod. Replay needs an
+**Enterprise** subscription; without one the app still runs and simply no replays appear.
+
+- **Sample rate** is `IOS_SESSION_REPLAY_SAMPLE_RATE` / `ANDROID_SESSION_REPLAY_SAMPLE_RATE` in
+  the app's `.env`. Blank means `1` (every session, the right setting for a demo). The SDK's
+  own default is `0.2`. Set `0` to turn replay off.
+- **It is a native dependency.** After pulling this change, re-run `./scripts/init-ios.sh`
+  (for `pod install`) or rebuild the Android app. Hot reload is not enough.
+- **Where to watch:** RUM → **Session search**, open a session and press play. From a DXA journey
+  map, select a path; the *Path Detail Analysis* panel lists up to 500 matching sessions and
+  opens each one in the replay player.
+- **Masking.** All demo data is synthetic, so nothing is masked. For a customer conversation,
+  `SplunkSessionReplay.instance.setRecordingMask()` hides screen rectangles (`MaskType.COVERING`)
+  and can reveal parts of them again (`MaskType.ERASING`). See
+  [Record React Native sessions](https://help.splunk.com/en/splunk-observability-cloud/digital-experience-monitoring/real-user-monitoring/replay-user-sessions/record-react-native-sessions).
 
 ---
 

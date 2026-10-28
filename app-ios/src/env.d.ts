@@ -5,4 +5,5 @@ declare module '@env' {
   export const IOS_SPLUNK_REALM: string;
   export const IOS_RUM_APP_NAME: string;
   export const IOS_RUM_ENVIRONMENT: string;
+  export const IOS_SESSION_REPLAY_SAMPLE_RATE: string;
 }

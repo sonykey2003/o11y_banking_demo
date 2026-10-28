@@ -14,6 +14,7 @@
   "dependencies": {
     "@appdynamics/react-native-agent": "26.6.1",
     "@splunk/otel-react-native": "1.1.0",
+    "@splunk/otel-session-replay-react-native": "1.1.0",
     "react": "18.3.1",
     "react-native": "0.76.5",
     "splunk-errors": "file:modules/splunk-errors"

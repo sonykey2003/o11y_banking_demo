@@ -5,4 +5,5 @@ declare module '@env' {
   export const ANDROID_SPLUNK_REALM: string;
   export const ANDROID_RUM_APP_NAME: string;
   export const ANDROID_RUM_ENVIRONMENT: string;
+  export const ANDROID_SESSION_REPLAY_SAMPLE_RATE: string;
 }

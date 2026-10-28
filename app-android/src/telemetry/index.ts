@@ -26,6 +26,8 @@ const globals: Record<string, string> = {'bank.brand': config.defaultBrandId};
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const splunk = () => require('@splunk/otel-react-native');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
+const replay = () => require('@splunk/otel-session-replay-react-native');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const appd = () => require('@appdynamics/react-native-agent');
 
 /** The Splunk JS API returns promises; swallow rejections so telemetry never surfaces as an app error. */
@@ -47,6 +49,15 @@ function reportScreen(): void {
   }
 }
 
+/** Start session replay recording. A no-op natively for sessions outside the sample rate. */
+function startReplay(): void {
+  try {
+    quiet(replay().SplunkSessionReplay?.instance?.start?.());
+  } catch (e) {
+    console.warn('[telemetry] session replay unavailable:', (e as Error).message);
+  }
+}
+
 export const telemetry = {
   async init(): Promise<void> {
     if (started) return;
@@ -58,8 +69,13 @@ export const telemetry = {
           console.warn('[telemetry] Splunk RUM selected but rumAccessToken is empty — staying off.');
           return;
         }
-        const {SplunkRum, OkHttp3AutoModuleConfiguration, HttpURLModuleConfiguration, NavigationModuleConfiguration} =
-          splunk();
+        const {
+          SplunkRum,
+          OkHttp3AutoModuleConfiguration,
+          HttpURLModuleConfiguration,
+          NavigationModuleConfiguration,
+          SessionReplayModuleConfiguration,
+        } = splunk();
         // Android needs the OkHttp module enabled explicitly: RN's fetch runs on OkHttp
         // and the SDK does NOT turn on HTTP capture by default on Android (iOS uses
         // URLSession by default). Without this, Android RUM shows no HTTP spans / no APM
@@ -68,11 +84,18 @@ export const telemetry = {
         // Navigation is the one module the RN agent does not turn on by default. Enable it
         // for our manual navigation.track() calls, but keep native auto-tracking OFF: it
         // would report the RN host Activity instead of our screen names.
+        //
+        // Session replay: the module only *allows* recording at the given sample rate;
+        // recording itself starts with SplunkSessionReplay.start() below.
+        const replayRate = s.sessionReplaySampleRate;
         const modules: unknown[] = [];
         try {
           if (OkHttp3AutoModuleConfiguration) modules.push(new OkHttp3AutoModuleConfiguration(true));
           if (HttpURLModuleConfiguration) modules.push(new HttpURLModuleConfiguration(true));
           if (NavigationModuleConfiguration) modules.push(new NavigationModuleConfiguration(true, false));
+          if (SessionReplayModuleConfiguration) {
+            modules.push(new SessionReplayModuleConfiguration(replayRate > 0, replayRate));
+          }
         } catch (e) {
           console.warn('[telemetry] could not build RUM modules:', (e as Error).message);
         }
@@ -90,9 +113,10 @@ export const telemetry = {
         );
         started = true;
         console.log(
-          `[telemetry] Splunk RUM initialized (env=${s.deploymentEnvironment}, modules=${modules.length}, user tracking=anonymous)`,
+          `[telemetry] Splunk RUM initialized (env=${s.deploymentEnvironment}, modules=${modules.length}, user tracking=anonymous, replay rate=${replayRate})`,
         );
         reportScreen();
+        if (replayRate > 0) startReplay();
       } else if (provider === 'appdynamics') {
         const a = config.rum.appdynamics;
         if (!a.appKey) {

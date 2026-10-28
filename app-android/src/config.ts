@@ -13,12 +13,16 @@ import {
   ANDROID_SPLUNK_REALM,
   ANDROID_RUM_APP_NAME,
   ANDROID_RUM_ENVIRONMENT,
+  ANDROID_SESSION_REPLAY_SAMPLE_RATE,
 } from '@env';
 
 // Identity shown in O11y. Override in app-android/.env to avoid clashing on a shared instance.
 const REALM = ANDROID_SPLUNK_REALM || 'us1';
 const RUM_APP = ANDROID_RUM_APP_NAME || 'demoBanking-rum-android';
 const RUM_ENV = ANDROID_RUM_ENVIRONMENT || 'demoBanking-rum';
+// Share of sessions recorded for session replay (needs an Enterprise subscription).
+// 1 records every session, which suits a demo; the SDK default is 0.2. 0 turns replay off.
+const REPLAY_RATE = Number(ANDROID_SESSION_REPLAY_SAMPLE_RATE || '1');
 
 export type RumProvider = 'none' | 'splunk' | 'appdynamics';
 
@@ -36,6 +40,8 @@ export interface AppConfig {
       rumAccessToken: string;
       applicationName: string;
       deploymentEnvironment: string;
+      /** 0..1; 0 disables session replay. */
+      sessionReplaySampleRate: number;
     };
     appdynamics: {
       appKey: string;
@@ -56,6 +62,7 @@ export const config: AppConfig = {
       rumAccessToken: ANDROID_SPLUNK_RUM_ACCESS_TOKEN || '', // from app-android/.env (gitignored)
       applicationName: RUM_APP,
       deploymentEnvironment: RUM_ENV,
+      sessionReplaySampleRate: Number.isFinite(REPLAY_RATE) ? Math.min(Math.max(REPLAY_RATE, 0), 1) : 1,
     },
     appdynamics: {
       appKey: ANDROID_APPDYNAMICS_APP_KEY || '', // from app/.env (gitignored)
