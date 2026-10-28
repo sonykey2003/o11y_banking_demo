@@ -8,16 +8,44 @@
 //
 // The SDKs are required lazily and wrapped in try/catch so API drift or a missing
 // native module degrades gracefully instead of crashing the demo.
+//
+// Digital Experience Analytics (DXA) journey maps are built from three things this
+// facade emits: screen views (navigation.track -> `screen.name`), custom events
+// (journey milestones, see trackEvent call sites) and an anonymous user ID per span.
 import {NativeModules} from 'react-native';
 import {config} from '../config';
 
 let started = false;
+// Screen the user is on now, and the last one actually reported to RUM. They differ
+// while the SDK is still installing: the first screen renders before install() resolves.
 let currentScreen = 'Login';
+let reportedScreen: string | null = null;
+// Global attributes on every span. Kept here so values set before install() still apply.
+const globals: Record<string, string> = {'bank.brand': config.defaultBrandId};
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const splunk = () => require('@splunk/otel-react-native');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const appd = () => require('@appdynamics/react-native-agent');
+
+/** The Splunk JS API returns promises; swallow rejections so telemetry never surfaces as an app error. */
+const quiet = (p: unknown) => {
+  Promise.resolve(p).catch(() => {
+    /* ignore */
+  });
+};
+
+function reportScreen(): void {
+  if (!started || currentScreen === reportedScreen) return;
+  reportedScreen = currentScreen;
+  try {
+    if (config.rum.provider === 'splunk') {
+      quiet(splunk().SplunkRum?.instance?.navigation?.track?.(currentScreen));
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 export const telemetry = {
   async init(): Promise<void> {
@@ -30,14 +58,27 @@ export const telemetry = {
           console.warn('[telemetry] Splunk RUM selected but rumAccessToken is empty — staying off.');
           return;
         }
-        const {SplunkRum} = splunk();
-        await SplunkRum.install({
-          appName: s.applicationName,
-          deploymentEnvironment: s.deploymentEnvironment,
-          endpoint: {rumAccessToken: s.rumAccessToken, realm: s.realm},
-        });
+        const {SplunkRum, NavigationModuleConfiguration} = splunk();
+        // Navigation is the one module the RN agent does not turn on by default. Enable it
+        // for our manual navigation.track() calls, but keep native auto-tracking OFF: it
+        // would report the RN host view controller instead of our screen names.
+        const modules: unknown[] = [];
+        if (NavigationModuleConfiguration) modules.push(new NavigationModuleConfiguration(true, false));
+        await SplunkRum.install(
+          {
+            appName: s.applicationName,
+            deploymentEnvironment: s.deploymentEnvironment,
+            endpoint: {rumAccessToken: s.rumAccessToken, realm: s.realm},
+            // DXA counts users and builds segments from this anonymous ID. The RN agent
+            // defaults to NO_TRACKING, which leaves DXA with no users to analyse.
+            user: {trackingMode: 'ANONYMOUS_TRACKING'},
+            globalAttributes: {...globals},
+          },
+          modules as never,
+        );
         started = true;
-        console.log(`[telemetry] Splunk RUM initialized (env=${s.deploymentEnvironment})`);
+        console.log(`[telemetry] Splunk RUM initialized (env=${s.deploymentEnvironment}, user tracking=anonymous)`);
+        reportScreen();
       } else if (provider === 'appdynamics') {
         const a = config.rum.appdynamics;
         if (!a.appKey) {
@@ -62,27 +103,42 @@ export const telemetry = {
     }
   },
 
-  /** Report a screen/route change. Splunk gets an explicit navigation event. */
-  trackScreen(name: string, attrs: Record<string, unknown> = {}): void {
+  /**
+   * Report a screen change. Splunk records a navigation event and stamps `screen.name`
+   * on all later telemetry; these are the screen nodes of the DXA journey map. Repeats
+   * of the current screen are dropped so the map has no self-loops.
+   */
+  trackScreen(name: string): void {
     currentScreen = name;
+    reportScreen();
+  },
+
+  /**
+   * Emit a custom event. In DXA these become journey-map nodes once you create an event
+   * definition for them. Use `bank.*` attribute names so they never collide with RUM's own.
+   */
+  trackEvent(name: string, attrs: Record<string, string | number | boolean> = {}): void {
     if (!started) return;
     try {
       if (config.rum.provider === 'splunk') {
-        splunk().SplunkRum?.instance?.navigation?.track?.(name, attrs);
+        quiet(splunk().SplunkRum?.instance?.customTracking?.trackCustomEvent?.(name, {screen: currentScreen, ...attrs}));
+      } else if (config.rum.provider === 'appdynamics') {
+        appd().Instrumentation?.leaveBreadcrumb?.(`${name} ${JSON.stringify(attrs)}`);
       }
     } catch {
       /* ignore */
     }
   },
 
-  /** Emit a custom event/workflow marker (e.g. login_submit, transfer_submit). */
-  trackEvent(name: string, attrs: Record<string, unknown> = {}): void {
+  /** Set (or with null, remove) a global attribute, e.g. for DXA user segments by brand or customer. */
+  setAttribute(key: string, value: string | null): void {
+    if (value === null) delete globals[key];
+    else globals[key] = value;
     if (!started) return;
     try {
       if (config.rum.provider === 'splunk') {
-        splunk().SplunkRum?.instance?.customTracking?.trackCustomEvent?.(name, {screen: currentScreen, ...attrs});
-      } else if (config.rum.provider === 'appdynamics') {
-        appd().Instrumentation?.leaveBreadcrumb?.(`${name} ${JSON.stringify(attrs)}`);
+        const attrs = splunk().SplunkRum?.instance?.globalAttributes;
+        quiet(value === null ? attrs?.remove?.(key) : attrs?.setString?.(key, value));
       }
     } catch {
       /* ignore */

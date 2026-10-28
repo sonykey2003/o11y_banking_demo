@@ -6,6 +6,7 @@ import {useTheme} from '../theme/ThemeContext';
 import {useNav} from '../navigation/NavContext';
 import {BrandLogo} from '../components/BrandLogo';
 import {Card, LinkButton, PrimaryButton, ScreenHeader, formatMoney} from '../components/ui';
+import {telemetry} from '../telemetry';
 
 export function DashboardScreen() {
   const {brand} = useTheme();
@@ -31,12 +32,13 @@ export function DashboardScreen() {
 
   // Fetch a fresh balance via the dedicated balance-check endpoint (account-service),
   // which increments account_balance_requests_total on every tap.
-  const checkBalance = useCallback(async (id: string) => {
+  const checkBalance = useCallback(async (id: string, accountType: string) => {
     setCheckingId(id);
     setError(null);
     try {
       const b = await api.balance(id);
       setLiveBalance((m) => ({...m, [id]: {money: formatMoney(b.balance, b.currency), at: new Date().toLocaleTimeString()}}));
+      telemetry.trackEvent('balance_check', {'bank.account.type': accountType});
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -77,7 +79,7 @@ export function DashboardScreen() {
           <View style={{marginTop: 10}}>
             <PrimaryButton
               label={checkingId === a.id ? 'Checking…' : liveBalance[a.id] ? 'Refresh balance' : 'Show balance'}
-              onPress={() => checkBalance(a.id)}
+              onPress={() => checkBalance(a.id, a.type)}
               loading={checkingId === a.id}
             />
             {liveBalance[a.id] ? (

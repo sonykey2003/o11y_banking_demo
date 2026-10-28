@@ -371,16 +371,23 @@ rum: {
 The SDK is started once, in [app-ios/src/telemetry/index.ts](app-ios/src/telemetry/index.ts):
 
 ```ts
-import {SplunkRum} from '@splunk/otel-react-native';
+import {SplunkRum, NavigationModuleConfiguration} from '@splunk/otel-react-native';
 
-await SplunkRum.install({
-  appName: s.applicationName,
-  deploymentEnvironment: s.deploymentEnvironment,
-  endpoint: {rumAccessToken: s.rumAccessToken, realm: s.realm},
-});
+await SplunkRum.install(
+  {
+    appName: s.applicationName,
+    deploymentEnvironment: s.deploymentEnvironment,
+    endpoint: {rumAccessToken: s.rumAccessToken, realm: s.realm},
+    user: {trackingMode: 'ANONYMOUS_TRACKING'},   // DXA needs a user ID; the RN default is NO_TRACKING
+    globalAttributes: {'bank.brand': 'dbs'},
+  },
+  [new NavigationModuleConfiguration(true, false)], // manual screen tracking, native auto-tracking off
+);
 ```
 
-On iOS no module list is needed — HTTP capture via `URLSession` is on by default.
+On iOS no HTTP module is needed — capture via `URLSession` is on by default. The navigation
+module is the one module the RN agent leaves off, and the app's named screens depend on it
+(see [Digital Experience Analytics](#digital-experience-analytics-journey-maps)).
 SDK reference: [Instrument React Native applications for Splunk RUM](https://docs.splunk.com/observability/en/rum/rum-mobile/rn-rum.html).
 
 After editing `.env`, restart Metro with `npm start -- --reset-cache`. Data appears in
@@ -439,6 +446,7 @@ import {
   SplunkRum,
   OkHttp3AutoModuleConfiguration,
   HttpURLModuleConfiguration,
+  NavigationModuleConfiguration,
 } from '@splunk/otel-react-native';
 
 // RN's fetch runs on OkHttp, and the Android SDK does NOT enable HTTP capture by
@@ -446,6 +454,7 @@ import {
 const modules = [
   new OkHttp3AutoModuleConfiguration(true),
   new HttpURLModuleConfiguration(true),
+  new NavigationModuleConfiguration(true, false), // same as iOS: named screens for DXA
 ];
 
 await SplunkRum.install(
@@ -453,6 +462,8 @@ await SplunkRum.install(
     appName: s.applicationName,
     deploymentEnvironment: s.deploymentEnvironment,
     endpoint: {rumAccessToken: s.rumAccessToken, realm: s.realm},
+    user: {trackingMode: 'ANONYMOUS_TRACKING'},
+    globalAttributes: {'bank.brand': 'dbs'},
   },
   modules,
 );
@@ -485,6 +496,55 @@ Inject faults, then watch APM error rates and latency react:
 ./scripts/fault-inject.sh status               # show current fault config
 ./scripts/fault-inject.sh clear                # back to normal
 ```
+
+### Digital Experience Analytics (journey maps)
+
+DXA is a paid add-on to Splunk RUM. It builds journey maps, funnels and user segments from the
+same RUM data the apps already send, so nothing extra is deployed. The apps emit three things
+for it:
+
+- **Screens.** Every navigation calls `navigation.track()` with a readable name, which also
+  stamps `screen.name` on everything that follows. The names are `Login`, `Dashboard`,
+  `Transfer`, `Brand Picker` and `Demo Controls`, defined in `SCREEN_NAMES` in
+  `src/navigation/NavContext.tsx`. Renaming one splits its history in DXA.
+- **An anonymous user ID** on every span (`user.trackingMode: ANONYMOUS_TRACKING`). The RN
+  agent defaults to `NO_TRACKING`, and DXA has no users to count without it.
+- **Milestone custom events**, plus global attributes `bank.brand` and `bank.customer.id`
+  (synthetic) for segments:
+
+| Event | Where | Attributes |
+|---|---|---|
+| `login_submit` | Login | `result` = `success` / `failure` |
+| `balance_check` | Dashboard, after a balance loads | `bank.account.type` |
+| `transfer_invalid` | Transfer, failed form validation | `bank.transfer.invalid_reason` = `same_account` / `amount` |
+| `transfer_submit` | Transfer | `bank.transfer.amount` (also legacy `amount`) |
+| `transfer_complete` | Transfer, gateway accepted it | `bank.transfer.id`, `bank.transfer.status`, `bank.transfer.amount` |
+| `transfer_failed` | Transfer, gateway rejected it | `bank.transfer.amount`, `bank.http.status` |
+| `logout` | Dashboard | none |
+
+To build the journey map:
+
+1. **Digital Experience → Digital experience analytics.** Confirm `demoBanking-rum-ios` or
+   `-android` is under *Available applications*, then create a project containing it.
+2. **Event Definitions → New event definition**, one per milestone you want as a node. Use the
+   *Custom* template with the event name, and add a tag filter where it matters. For example,
+   *Login success* is `login_submit` with `result = success`, and *Login failed* is the same with
+   `result = failure`.
+3. **Analyses → New analysis → Journey map.** Set *Starts from* to the `Login` screen. For steps,
+   pick the screens **and** your event definitions, set the length to 5–7, and turn on *Show
+   drop-offs*.
+4. Select a path, then **Create funnel** to turn it into a conversion funnel such as
+   Login → Dashboard → Transfer → `transfer_complete`.
+
+To make the map worth looking at, drive several different paths: abandon a transfer with
+*Back*, submit an invalid amount, and inject `./scripts/fault-inject.sh error 0.5 transfer`
+so `transfer_failed` gets traffic. Log in as different demo users so the `bank.customer.id`
+segments have data. DXA counts users by the anonymous ID, so one simulator mostly shows up as
+one user. Use the iOS simulator and the Android emulator together to get two.
+
+`bank.transfer.id` and `bank.transfer.amount` are also the correlation key and KPI for
+**Business Insights → Business Journeys**, which is enabled per org through the Splunk account
+team.
 
 ---
 

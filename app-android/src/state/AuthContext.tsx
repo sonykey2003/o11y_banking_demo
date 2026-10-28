@@ -23,6 +23,8 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
       const res = await api.login(username, password);
       setToken(res.token);
       setUser({customerId: res.customerId, name: res.name});
+      // Synthetic demo customer ID, so DXA user segments can split demo / alice / bob.
+      telemetry.setAttribute('bank.customer.id', res.customerId);
       telemetry.trackEvent('login_submit', {result: 'success'});
     } catch (e) {
       telemetry.trackEvent('login_submit', {result: 'failure'});
@@ -31,6 +33,8 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
   }, []);
 
   const logout = useCallback(() => {
+    telemetry.trackEvent('logout');
+    telemetry.setAttribute('bank.customer.id', null);
     setToken(null);
     setUser(null);
   }, []);

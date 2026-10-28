@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {ActivityIndicator, Alert, Pressable, ScrollView, Text, View} from 'react-native';
-import {api, type Account} from '../api/client';
+import {ApiError, api, type Account} from '../api/client';
 import {useTheme} from '../theme/ThemeContext';
 import {useNav} from '../navigation/NavContext';
 import {Card, Field, LinkButton, PrimaryButton, ScreenHeader, formatMoney} from '../components/ui';
@@ -38,21 +38,35 @@ export function TransferScreen() {
 
   const onSubmit = async () => {
     const amt = Number(amount);
+    // Journey milestones: transfer_invalid (friction) -> transfer_submit -> transfer_complete
+    // or transfer_failed. `bank.transfer.id` is the Business Journeys correlation key and
+    // `bank.transfer.amount` the KPI measurement.
     if (!from || !to || from === to) {
+      telemetry.trackEvent('transfer_invalid', {'bank.transfer.invalid_reason': 'same_account'});
       Alert.alert('Check accounts', 'Choose two different accounts.');
       return;
     }
     if (!(amt > 0)) {
+      telemetry.trackEvent('transfer_invalid', {'bank.transfer.invalid_reason': 'amount'});
       Alert.alert('Check amount', 'Enter an amount greater than 0.');
       return;
     }
     setSubmitting(true);
-    telemetry.trackEvent('transfer_submit', {amount: amt});
+    telemetry.trackEvent('transfer_submit', {amount: amt, 'bank.transfer.amount': amt});
     try {
       const res = await api.createTransfer({fromAccountId: from, toAccountId: to, amount: amt});
+      telemetry.trackEvent('transfer_complete', {
+        'bank.transfer.id': res.id,
+        'bank.transfer.status': res.status,
+        'bank.transfer.amount': amt,
+      });
       Alert.alert('Transfer submitted', `${res.id} is ${res.status}. It settles asynchronously.`);
       navigate('dashboard');
     } catch (e) {
+      telemetry.trackEvent('transfer_failed', {
+        'bank.transfer.amount': amt,
+        'bank.http.status': e instanceof ApiError ? e.status : 0,
+      });
       telemetry.reportError(e);
       Alert.alert('Transfer failed', (e as Error).message);
     } finally {
