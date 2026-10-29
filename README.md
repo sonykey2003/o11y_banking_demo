@@ -183,6 +183,22 @@ To use the app yourself:
 
 Demo users: `demo/demo`, `alice/password`, `bob/password`.
 
+Journey-map personas take **any password**, including an empty one. Usernames are
+case-insensitive, and each persona has two accounts so it can make transfers:
+
+| Username | Name | Segment (`bank.customer.segment`) |
+|---|---|---|
+| `sarah` | Sarah Wong | `student` |
+| `raj` | Raj Kumar | `young_professional` |
+| `mei` | Mei Ling Chen | `family` |
+| `ken` | Ken Nakamura | `affluent` |
+| `nur` | Nur Aisyah | `sme_owner` |
+
+They're defined in `services/apps/auth-service/src/users.ts`, with their accounts in the MySQL
+seed. The seed only runs on an empty data volume; on an existing cluster, insert the
+`ACC-4001`…`ACC-8002` rows from `k8s/base/mysql/configmap-init-sql.yaml` by hand. The app's
+login screen has a chip for each persona.
+
 ---
 
 ## 6. Turn on Splunk APM
@@ -525,8 +541,8 @@ for it:
   landing screen. Sessions recorded before the change still show `Dashboard`.
 - **An anonymous user ID** on every span (`user.trackingMode: ANONYMOUS_TRACKING`). The RN
   agent defaults to `NO_TRACKING`, and DXA has no users to count without it.
-- **Milestone custom events**, plus global attributes `bank.brand` and `bank.customer.id`
-  (synthetic) for segments:
+- **Milestone custom events**, plus global attributes `bank.brand`, `bank.customer.id`
+  (synthetic) and `bank.customer.segment` for segments:
 
 | Event | Where | Attributes |
 |---|---|---|
@@ -570,9 +586,15 @@ To build the journey map:
 To make the map worth looking at, drive several different paths: Scan & Pay through to a
 payment, a promo through to an application, an abandoned transfer (*Back*), an invalid amount,
 and a few tab visits. Inject `./scripts/fault-inject.sh error 0.5 transfer` so
-`transfer_failed` gets traffic. Log in as different demo users so the `bank.customer.id`
-segments have data. DXA counts users by the anonymous ID, so one simulator mostly shows up as
-one user. Use the iOS simulator and the Android emulator together to get two.
+`transfer_failed` gets traffic.
+
+Log in as several personas, each walking a different path, so the journey map has distinct
+users. DXA counts users by the agent's anonymous user ID, which the SDK stores per device. To
+make each persona its own user, the app rotates that ID (tracking off, then on) whenever a
+different customer logs in, so logging in as `sarah` and then `ken` on one emulator produces
+two DXA users, and `ken` again stays the same user. The first login after an app launch also
+rotates, because the stored ID may belong to whoever used the app before the restart. Build
+DXA user segments on `bank.customer.segment` to compare students with affluent customers.
 
 `bank.transfer.id` and `bank.transfer.amount` are also the correlation key and KPI for
 **Business Insights → Business Journeys**, which is enabled per org through the Splunk account

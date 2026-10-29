@@ -76,7 +76,7 @@ export interface Dashboard {
 
 export const api = {
   login: (username: string, password: string) =>
-    request<{token: string; customerId: string; name: string}>('/api/login', {method: 'POST', body: {username, password}}),
+    request<{token: string; customerId: string; name: string; segment?: string}>('/api/login', {method: 'POST', body: {username, password}}),
   dashboard: () => request<Dashboard>('/api/dashboard'),
   balance: (id: string) =>
     request<{accountId: string; balance: number; currency: string}>(`/api/accounts/${id}/balance`),

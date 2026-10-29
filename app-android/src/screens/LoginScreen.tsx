@@ -4,7 +4,8 @@ import {useAuth} from '../state/AuthContext';
 import {useTheme} from '../theme/ThemeContext';
 import {useNav} from '../navigation/NavContext';
 import {BrandLogo} from '../components/BrandLogo';
-import {Field, LinkButton, PrimaryButton} from '../components/ui';
+import {Chip, Field, LinkButton, PrimaryButton} from '../components/ui';
+import {PERSONAS} from '../data/content';
 import {ApiError} from '../api/client';
 
 export function LoginScreen() {
@@ -41,6 +42,23 @@ export function LoginScreen() {
       <Field label="Username" autoCapitalize="none" autoCorrect={false} value={username} onChangeText={setUsername} />
       <Field label="Password" secureTextEntry value={password} onChangeText={setPassword} />
 
+      <Text style={{color: brand.colors.muted, fontSize: 12, fontWeight: '600', marginBottom: 8}}>
+        Personas (any password)
+      </Text>
+      <View style={{flexDirection: 'row', flexWrap: 'wrap', marginBottom: 6}}>
+        {PERSONAS.map((p) => (
+          <Chip
+            key={p.username}
+            label={p.label}
+            selected={username.trim().toLowerCase() === p.username}
+            onPress={() => {
+              setUsername(p.username);
+              setPassword('');
+            }}
+          />
+        ))}
+      </View>
+
       <PrimaryButton label="Log in" onPress={onLogin} loading={loading} />
 
       <View style={{marginTop: 8}}>
@@ -49,7 +67,7 @@ export function LoginScreen() {
       </View>
 
       <Text style={{textAlign: 'center', color: brand.colors.muted, fontSize: 12, marginTop: 16}}>
-        Demo users: demo/demo · alice/password · bob/password
+        Also: demo/demo · alice/password · bob/password
       </Text>
     </ScrollView>
   );

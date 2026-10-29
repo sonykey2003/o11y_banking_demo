@@ -48,9 +48,15 @@ app.post('/login', async (req, res, next) => {
           return null;
         }
         span.setAttribute('auth.result', 'granted');
+        span.setAttribute('auth.passwordless', user.password === null);
         span.setAttribute('customer_id', user.customerId);
         loginCounter.add(1, { result: 'granted' });
-        return { token: sign({ customerId: user.customerId, name: user.name }), customerId: user.customerId, name: user.name };
+        return {
+          token: sign({ customerId: user.customerId, name: user.name }),
+          customerId: user.customerId,
+          name: user.name,
+          segment: user.segment,
+        };
       },
     );
     loginLatency.record((Date.now() - t0) / 1000, { result: result ? 'granted' : 'denied' });

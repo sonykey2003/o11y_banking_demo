@@ -60,7 +60,18 @@ data:
       ('ACC-1002','CUST-0001','CURRENT','Current Account','SGD',3200.00),
       ('ACC-2001','CUST-0002','SAVINGS','Everyday Savings','SGD',8800.75),
       ('ACC-3001','CUST-0003','SAVINGS','Everyday Savings','SGD',15000.00),
-      ('ACC-3002','CUST-0003','CURRENT','Current Account','SGD',450.25)
+      ('ACC-3002','CUST-0003','CURRENT','Current Account','SGD',450.25),
+      -- Passwordless journey-map personas (auth-service users.ts), two accounts each
+      ('ACC-4001','CUST-0004','SAVINGS','Everyday Savings','SGD',640.20),
+      ('ACC-4002','CUST-0004','CURRENT','Current Account','SGD',85.50),
+      ('ACC-5001','CUST-0005','SAVINGS','Everyday Savings','SGD',9850.00),
+      ('ACC-5002','CUST-0005','CURRENT','Current Account','SGD',2310.40),
+      ('ACC-6001','CUST-0006','SAVINGS','Family Savings','SGD',24300.00),
+      ('ACC-6002','CUST-0006','CURRENT','Current Account','SGD',4120.75),
+      ('ACC-7001','CUST-0007','SAVINGS','Premier Savings','SGD',186500.00),
+      ('ACC-7002','CUST-0007','CURRENT','Premier Current','SGD',22800.00),
+      ('ACC-8001','CUST-0008','SAVINGS','Everyday Savings','SGD',41250.00),
+      ('ACC-8002','CUST-0008','CURRENT','Business Account','SGD',13675.30)
     AS new ON DUPLICATE KEY UPDATE balance = new.balance;
 
     -- Seed transactions

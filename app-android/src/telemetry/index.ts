@@ -168,6 +168,22 @@ export const telemetry = {
     }
   },
 
+  /**
+   * Start a fresh anonymous RUM user. The SDK keeps one anonymous ID per device, so every
+   * persona logged in on one simulator would otherwise count as the same DXA user.
+   * Switching tracking off deletes the stored ID; switching it back on generates a new one.
+   */
+  async newAnonymousUser(): Promise<void> {
+    if (!started || config.rum.provider !== 'splunk') return;
+    try {
+      const prefs = splunk().SplunkRum?.instance?.user?.preferences;
+      await prefs?.setTrackingMode?.('NO_TRACKING');
+      await prefs?.setTrackingMode?.('ANONYMOUS_TRACKING');
+    } catch {
+      /* ignore */
+    }
+  },
+
   /** Set (or with null, remove) a global attribute, e.g. for DXA user segments by brand or customer. */
   setAttribute(key: string, value: string | null): void {
     if (value === null) delete globals[key];
