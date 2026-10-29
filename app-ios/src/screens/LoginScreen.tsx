@@ -48,11 +48,11 @@ export function LoginScreen() {
       <View style={{flexDirection: 'row', flexWrap: 'wrap', marginBottom: 6}}>
         {PERSONAS.map((p) => (
           <Chip
-            key={p.username}
-            label={p.label}
-            selected={username.trim().toLowerCase() === p.username}
+            key={p}
+            label={p}
+            selected={username.trim().toLowerCase() === p}
             onPress={() => {
-              setUsername(p.username);
+              setUsername(p);
               setPassword('');
             }}
           />

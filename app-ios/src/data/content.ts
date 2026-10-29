@@ -100,13 +100,7 @@ export const FX_RATES: Record<string, number> = {
  * Passwordless journey-map personas, matching auth-service users.ts. Any password works.
  * Log in as several of them so DXA journey maps and segments have distinct users.
  */
-export const PERSONAS = [
-  {username: 'sarah', label: 'Sarah · student'},
-  {username: 'raj', label: 'Raj · young pro'},
-  {username: 'mei', label: 'Mei · family'},
-  {username: 'ken', label: 'Ken · affluent'},
-  {username: 'nur', label: 'Nur · SME owner'},
-];
+export const PERSONAS = ['sarah', 'raj', 'mei', 'ken', 'nur'];
 
 /** Synthetic merchant returned by a simulated QR scan. */
 export const SCAN_MERCHANT = {name: 'Kopi Corner', amount: 6.8};
