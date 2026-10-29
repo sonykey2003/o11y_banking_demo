@@ -10,7 +10,7 @@ import {ApiError} from '../api/client';
 export function LoginScreen() {
   const {brand} = useTheme();
   const {login} = useAuth();
-  const {navigate} = useNav();
+  const {navigate, reset} = useNav();
   const [username, setUsername] = useState('demo');
   const [password, setPassword] = useState('demo');
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export function LoginScreen() {
     setLoading(true);
     try {
       await login(username.trim(), password);
-      navigate('dashboard');
+      reset('home');
     } catch (e) {
       const msg = e instanceof ApiError && e.status === 401 ? 'Invalid credentials' : (e as Error).message;
       Alert.alert('Login failed', msg);

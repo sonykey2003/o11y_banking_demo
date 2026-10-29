@@ -1,16 +1,13 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {RefreshControl, ScrollView, Text, View} from 'react-native';
 import {api, type Dashboard} from '../api/client';
-import {useAuth} from '../state/AuthContext';
 import {useTheme} from '../theme/ThemeContext';
 import {useNav} from '../navigation/NavContext';
-import {BrandLogo} from '../components/BrandLogo';
-import {Card, LinkButton, PrimaryButton, ScreenHeader, formatMoney} from '../components/ui';
+import {Card, PrimaryButton, ScreenHeader, formatMoney} from '../components/ui';
 import {telemetry} from '../telemetry';
 
-export function DashboardScreen() {
+export function AccountsScreen() {
   const {brand} = useTheme();
-  const {user, logout} = useAuth();
   const {navigate} = useNav();
   const [data, setData] = useState<Dashboard | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,7 +35,7 @@ export function DashboardScreen() {
     try {
       const b = await api.balance(id);
       setLiveBalance((m) => ({...m, [id]: {money: formatMoney(b.balance, b.currency), at: new Date().toLocaleTimeString()}}));
-      telemetry.trackEvent('balance_check', {'bank.account.type': accountType});
+      telemetry.trackEvent('balance_check', {'bank.account.type': accountType, 'bank.entry': 'accounts'});
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -53,19 +50,9 @@ export function DashboardScreen() {
   return (
     <ScrollView
       style={{backgroundColor: brand.colors.background}}
-      contentContainerStyle={{padding: 20, paddingTop: 60}}
+      contentContainerStyle={{padding: 20}}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={brand.colors.primary} />}>
-      <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 20}}>
-        <BrandLogo size={44} />
-        <View style={{marginLeft: 12}}>
-          <Text style={{fontSize: 13, color: brand.colors.muted}}>{brand.name}</Text>
-          <Text style={{fontSize: 18, fontWeight: '800', color: brand.colors.text}}>
-            Hi, {user?.name ?? data?.name ?? 'there'}
-          </Text>
-        </View>
-      </View>
-
-      <ScreenHeader title="Accounts" />
+      <ScreenHeader title="Accounts" subtitle={data ? `${data.accounts.length} accounts · ${data.name}` : undefined} />
       {error ? <Text style={{color: '#B00020', marginBottom: 12}}>Could not load: {error}</Text> : null}
       {(data?.accounts ?? []).map((a) => (
         <Card key={a.id}>
@@ -73,7 +60,7 @@ export function DashboardScreen() {
             {a.type} · {a.id}
           </Text>
           <Text style={{fontSize: 16, fontWeight: '600', color: brand.colors.text, marginTop: 2}}>{a.name}</Text>
-          <Text style={{fontSize: 24, fontWeight: '800', color: brand.colors.primary, marginTop: 8}}>
+          <Text style={{fontSize: 24, fontWeight: '800', color: brand.colors.primaryText, marginTop: 8}}>
             {liveBalance[a.id] ? liveBalance[a.id].money : `${a.currency} ••••••`}
           </Text>
           <View style={{marginTop: 10}}>
@@ -92,7 +79,7 @@ export function DashboardScreen() {
       ))}
 
       <View style={{marginTop: 8, marginBottom: 8}}>
-        <PrimaryButton label="Transfer money" onPress={() => navigate('transfer')} />
+        <PrimaryButton label="Transfer money" onPress={() => navigate('transfer', {entry: 'accounts'})} />
       </View>
 
       <ScreenHeader title="Recent transfers" />
@@ -111,13 +98,6 @@ export function DashboardScreen() {
           </Card>
         ))
       )}
-
-      <LinkButton label="Switch bank brand" onPress={() => navigate('brands')} />
-      <LinkButton label="Demo controls" onPress={() => navigate('demo')} />
-      <LinkButton label="Log out" onPress={() => {
-        logout();
-        navigate('login');
-      }} />
     </ScrollView>
   );
 }

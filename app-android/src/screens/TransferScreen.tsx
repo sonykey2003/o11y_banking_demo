@@ -3,16 +3,19 @@ import {ActivityIndicator, Alert, Pressable, ScrollView, Text, View} from 'react
 import {ApiError, api, type Account} from '../api/client';
 import {useTheme} from '../theme/ThemeContext';
 import {useNav} from '../navigation/NavContext';
-import {Card, Field, LinkButton, PrimaryButton, ScreenHeader, formatMoney} from '../components/ui';
+import {Card, Field, LinkButton, PrimaryButton, ScreenHeader, TopBar, formatMoney} from '../components/ui';
 import {telemetry} from '../telemetry';
 
 export function TransferScreen() {
   const {brand} = useTheme();
-  const {navigate} = useNav();
+  const {params, reset, back} = useNav();
+  // Scan & Pay opens this screen with a merchant and amount; other entry points leave them unset.
+  const payee = params.payee ? String(params.payee) : null;
+  const entry = String(params.entry ?? 'direct');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [from, setFrom] = useState<string>('');
   const [to, setTo] = useState<string>('');
-  const [amount, setAmount] = useState<string>('50');
+  const [amount, setAmount] = useState<string>(params.amount ? String(params.amount) : '50');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -39,8 +42,8 @@ export function TransferScreen() {
   const onSubmit = async () => {
     const amt = Number(amount);
     // Journey milestones: transfer_invalid (friction) -> transfer_submit -> transfer_complete
-    // or transfer_failed. `bank.transfer.id` is the Business Journeys correlation key and
-    // `bank.transfer.amount` the KPI measurement.
+    // or transfer_failed. `bank.transfer.id` is the Business Journeys correlation key,
+    // `bank.transfer.amount` the KPI measurement and `bank.entry` the way the user got here.
     if (!from || !to || from === to) {
       telemetry.trackEvent('transfer_invalid', {'bank.transfer.invalid_reason': 'same_account'});
       Alert.alert('Check accounts', 'Choose two different accounts.');
@@ -52,20 +55,22 @@ export function TransferScreen() {
       return;
     }
     setSubmitting(true);
-    telemetry.trackEvent('transfer_submit', {amount: amt, 'bank.transfer.amount': amt});
+    telemetry.trackEvent('transfer_submit', {amount: amt, 'bank.transfer.amount': amt, 'bank.entry': entry});
     try {
       const res = await api.createTransfer({fromAccountId: from, toAccountId: to, amount: amt});
       telemetry.trackEvent('transfer_complete', {
         'bank.transfer.id': res.id,
         'bank.transfer.status': res.status,
         'bank.transfer.amount': amt,
+        'bank.entry': entry,
       });
       Alert.alert('Transfer submitted', `${res.id} is ${res.status}. It settles asynchronously.`);
-      navigate('dashboard');
+      reset(entry === 'accounts' ? 'accounts' : 'home');
     } catch (e) {
       telemetry.trackEvent('transfer_failed', {
         'bank.transfer.amount': amt,
         'bank.http.status': e instanceof ApiError ? e.status : 0,
+        'bank.entry': entry,
       });
       telemetry.reportError(e);
       Alert.alert('Transfer failed', (e as Error).message);
@@ -112,7 +117,7 @@ export function TransferScreen() {
               Could not load accounts{loadError ? `: ${loadError}` : ''}
             </Text>
             <PrimaryButton label="Retry" onPress={loadAccounts} />
-            <LinkButton label="Back" onPress={() => navigate('dashboard')} />
+            <LinkButton label="Back" onPress={back} />
           </>
         )}
       </View>
@@ -120,15 +125,20 @@ export function TransferScreen() {
   }
 
   return (
-    <ScrollView style={{backgroundColor: brand.colors.background}} contentContainerStyle={{padding: 20, paddingTop: 60}}>
-      <ScreenHeader title="Transfer money" subtitle="All transfers are simulated." />
-      <Card>
-        <AccountRow label="From" selected={from} onSelect={setFrom} />
-        <AccountRow label="To" selected={to} onSelect={setTo} />
-        <Field label="Amount" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} />
-        <PrimaryButton label="Send transfer" onPress={onSubmit} loading={submitting} />
-      </Card>
-      <LinkButton label="Back" onPress={() => navigate('dashboard')} />
-    </ScrollView>
+    <View style={{flex: 1, backgroundColor: brand.colors.background}}>
+      <TopBar title={payee ? 'Scan & Pay' : 'Transfer'} onBack={back} />
+      <ScrollView contentContainerStyle={{padding: 20}}>
+        <ScreenHeader
+          title={payee ? `Pay ${payee}` : 'Transfer money'}
+          subtitle={payee ? 'Paid from your own account in this demo.' : 'All transfers are simulated.'}
+        />
+        <Card>
+          <AccountRow label="From" selected={from} onSelect={setFrom} />
+          <AccountRow label="To" selected={to} onSelect={setTo} />
+          <Field label="Amount" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} />
+          <PrimaryButton label="Send transfer" onPress={onSubmit} loading={submitting} />
+        </Card>
+      </ScrollView>
+    </View>
   );
 }

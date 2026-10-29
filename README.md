@@ -514,9 +514,15 @@ same RUM data the apps already send, so nothing extra is deployed. The apps emit
 for it:
 
 - **Screens.** Every navigation calls `navigation.track()` with a readable name, which also
-  stamps `screen.name` on everything that follows. The names are `Login`, `Dashboard`,
-  `Transfer`, `Brand Picker` and `Demo Controls`, defined in `SCREEN_NAMES` in
-  `src/navigation/NavContext.tsx`. Renaming one splits its history in DXA.
+  stamps `screen.name` on everything that follows. The names are defined in `SCREEN_NAMES` in
+  `src/navigation/NavContext.tsx`; renaming one splits its history in DXA.
+  - Tabs: `Home` (the landing screen), `Accounts`, `Wealth`, `Rewards`, `Services`.
+  - Opened from a tab: `Transfer`, `Scan & Pay`, `Statements`, `Transaction Limits`, `FX`,
+    `Apply`, `Inbox`.
+  - Also: `Login`, `Brand Picker`, `Demo Controls`.
+
+  `Dashboard` was renamed: its balance cards are now the `Accounts` tab, and `Home` is the new
+  landing screen. Sessions recorded before the change still show `Dashboard`.
 - **An anonymous user ID** on every span (`user.trackingMode: ANONYMOUS_TRACKING`). The RN
   agent defaults to `NO_TRACKING`, and DXA has no users to count without it.
 - **Milestone custom events**, plus global attributes `bank.brand` and `bank.customer.id`
@@ -525,12 +531,26 @@ for it:
 | Event | Where | Attributes |
 |---|---|---|
 | `login_submit` | Login | `result` = `success` / `failure` |
-| `balance_check` | Dashboard, after a balance loads | `bank.account.type` |
+| `balance_check` | Home or Accounts, after a balance loads | `bank.account.type`, `bank.entry` = `home` / `accounts` |
+| `promo_tap` | Home, a promo card | `bank.promo.id` |
+| `qr_scan` | Scan & Pay, simulated scan | `bank.qr.merchant`, `bank.transfer.amount` |
 | `transfer_invalid` | Transfer, failed form validation | `bank.transfer.invalid_reason` = `same_account` / `amount` |
-| `transfer_submit` | Transfer | `bank.transfer.amount` (also legacy `amount`) |
-| `transfer_complete` | Transfer, gateway accepted it | `bank.transfer.id`, `bank.transfer.status`, `bank.transfer.amount` |
-| `transfer_failed` | Transfer, gateway rejected it | `bank.transfer.amount`, `bank.http.status` |
-| `logout` | Dashboard | none |
+| `transfer_submit` | Transfer | `bank.transfer.amount` (also legacy `amount`), `bank.entry` |
+| `transfer_complete` | Transfer, gateway accepted it | `bank.transfer.id`, `bank.transfer.status`, `bank.transfer.amount`, `bank.entry` |
+| `transfer_failed` | Transfer, gateway rejected it | `bank.transfer.amount`, `bank.http.status`, `bank.entry` |
+| `statement_download` | Statements | `bank.statement.month` |
+| `limit_update` | Transaction Limits | `bank.limit.daily`, `bank.limit.previous` |
+| `fx_exchange` | FX | `bank.fx.pair`, `bank.fx.amount` |
+| `application_submit` | Apply | `bank.product`, `bank.entry` = `promo` / `wealth` / `services` / `direct` |
+| `reward_redeem` / `reward_redeem_blocked` | Rewards | `bank.reward.id`, `bank.reward.points` |
+| `holding_view` | Wealth | `bank.holding.id` |
+| `inbox_open` | Inbox | `bank.message.id` |
+| `logout` | Home or Services | none |
+
+`bank.entry` on the transfer events records how the user got there: `quick_pay`, `shortcut`,
+`scan`, `accounts` or `services`. Use it to compare which entry point converts best. Only
+Transfer calls the backend; the other screens are simulated in the app and produce RUM data
+only.
 
 To build the journey map:
 
@@ -544,11 +564,13 @@ To build the journey map:
    pick the screens **and** your event definitions, set the length to 5–7, and turn on *Show
    drop-offs*.
 4. Select a path, then **Create funnel** to turn it into a conversion funnel such as
-   Login → Dashboard → Transfer → `transfer_complete`.
+   Login → Home → Transfer → `transfer_complete`, or Home → `promo_tap` → Apply →
+   `application_submit`.
 
-To make the map worth looking at, drive several different paths: abandon a transfer with
-*Back*, submit an invalid amount, and inject `./scripts/fault-inject.sh error 0.5 transfer`
-so `transfer_failed` gets traffic. Log in as different demo users so the `bank.customer.id`
+To make the map worth looking at, drive several different paths: Scan & Pay through to a
+payment, a promo through to an application, an abandoned transfer (*Back*), an invalid amount,
+and a few tab visits. Inject `./scripts/fault-inject.sh error 0.5 transfer` so
+`transfer_failed` gets traffic. Log in as different demo users so the `bank.customer.id`
 segments have data. DXA counts users by the anonymous ID, so one simulator mostly shows up as
 one user. Use the iOS simulator and the Android emulator together to get two.
 

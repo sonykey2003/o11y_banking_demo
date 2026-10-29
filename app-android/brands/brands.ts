@@ -5,9 +5,12 @@
 // logo — to avoid using third-party trademarks. To use a real logo for a specific
 // demo, drop an asset into brands/assets/ and render it locally (do not commit it).
 // Colors are close-enough demo approximations, not official brand specifications.
+import {luminance, mix} from '../src/theme/color';
 
 export interface BrandColors {
   primary: string;
+  /** `primary` darkened when needed so it stays readable as text or icons on white. */
+  primaryText: string;
   onPrimary: string;
   accent: string;
   background: string;
@@ -29,6 +32,8 @@ export interface Brand {
 function palette(primary: string, onPrimary: string, accent: string): BrandColors {
   return {
     primary,
+    // Light brand colours (e.g. a yellow) wash out on white; darken those for foreground use.
+    primaryText: luminance(primary) > 0.4 ? mix(primary, '#000000', 0.45) : primary,
     onPrimary,
     accent,
     background: '#F4F5F7',
